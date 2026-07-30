@@ -1,3 +1,7 @@
+from collections import defaultdict
+from qiskit import QuantumCircuit
+
+
 def karatsuba(a, b, n_a, n_b, N):
     qc = QuantumCircuit(4*(n_a + n_b - k) + 3 2 *(k**2) + n_a*n_b - n_a*k - n_b*k)
     a = qc.qubits[:n_a]
@@ -36,8 +40,66 @@ def karatsuba(a, b, n_a, n_b, N):
     
     
 def RP(a, b, n_a, n_b, N):
+    qc = QuantumCircuit(2*(n_a + n_b))
+    a = qc.qubits[:n_a]
+    b = qc.qubits[n_a: n_a + n_b]
+    R = qc.qubits[n_a + n_b: 2*(n_a + n_b)]
+    c_adder = adder.control(1)
+    for i in range(n_a):
+        acc_slice = R[i : i + n_b]
+        qc.append(c_adder, [a[i]] + b[:] + acc_slice)
+    return qc.to_gate()
+
+"""
+def Dadda(a, b, n_a, n_b, N):
+    qc = QuantumCircuit()
+    a = qc.qubits[:n_a]
+    b = qc.qubits[n_a: n_a + n_b]
+    p = qc.qubits[n_a + n_b: n_a + n_b + n_a * n_b]
+    columns = defaultdict(list)
+    for i in range(n_a):
+        for j in range(n_b):
+            p_i = i * n_b + j
+            qc.ccx(a[i],b[j],p[p_i])
+            weight = i + j
+            columns[weight].append(p[p_i])
+    D = []
+    Dj = 2
+    hmax = max(n_a,n_b)
+    for j in range(hmax):
+        D[j] = Dj
+        Dj = 3 * Dj // 2        
+"""
     
-def DW(a, b, n_a, n_b, N):
+def booth(a, b, n_a, n_b, N):
+    qc = QuantumCircuit()
+    a = qc.qubits[:n_a]
+    b = qc.qubits[n_a: n_a + n_b]
+    R = qc.qubits[n_a + n_b: 2*n_a + 2*n_b]
+    flags = qc.qubits[2*n_a + 2* n_b: 2* n_a + 2* n_b + 4]
+    anc = qc.qubits[-1]
+    mult,add = a,b if n_a <= n_b else b,a
+    for j in range(1, len(mult), 2):
+        if j == 1:
+            qc.append(booth_multiplexer_simple(),[a[j],a[j-1],flags])
+        else: 
+            qc.append(booth_multiplexer(), [a[j],a[j-1],a[j-2],flags,anc])
+        t0 = R[j-1: j - 1 + n_b]
+        qc.append(c_adder(),[flags[0], *add, *t0])
+        t1 = R[j : j + n_b]
+        qc.append(c_adder(),[flags[1], *add, *t1])
+        qc.append(c_subtractor(),[flags[2], *add, *t0])
+        qc.append(c_subtractor(),[flags[3], *add, *t1])
+        if j == 1:
+            qc.append(booth_multiplexer_simple().inverse(),[a[j],a[j-1],flags])
+        else: 
+            qc.append(booth_multiplexer().inverse(), [a[j],a[j-1],a[j-2],flags,anc])
+        return qc.to_gate()
     
-def Booth(a, b, n_a, n_b, N):
     
+    
+    
+    
+    
+    
+        qc.append(c_adder())
