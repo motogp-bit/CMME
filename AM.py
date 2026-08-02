@@ -1,17 +1,15 @@
 from collections import defaultdict
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import VBERippleCarryAdder
 import numpy as np
 
 
-def karatsuba(a, b, n_a, n_b, N): 
+def karatsuba(a, b, n_a, n_b, optimal_splits): 
     if n_a == 1 and n_b == 1:
         qc = QuantumCircuit(3)
         qc.ccx(0, 1, 2)
         return qc.to_gate()
-    vbe_gate = VBERippleCarryAdder(num_state_qubits=n).to_gate()
-    k = n_a // 2
-    odd = n_a % 2
+    k = optimal_splits.get(n_a, n_a // 2)
+    odd = (n_a - k) != k 
     qc = QuantumCircuit(4*(n_a + n_b - k) + 3 + 2 *(k**2) + n_a*n_b - n_a*k - n_b*k)
     a = qc.qubits[:n_a]
     b = qc.qubits[n_a: n_a + n_b]
@@ -32,8 +30,8 @@ def karatsuba(a, b, n_a, n_b, N):
             qc.cx(a0[i],sum_a[i])
         for i in range(len(b0)):
             qc.cx(b0[i],sum_b[i])
-        qc.append(AS_adder(k,len(a0)),[*a1,*sum_a,*anc])
-        qc.append(AS_adder(k,len(b0)),[*b1,*sum_b,*anc])
+        qc.append(IP_adder(k,len(a0)),[*a1,*sum_a,*anc])
+        qc.append(IP_adder(k,len(b0)),[*b1,*sum_b,*anc])
     else:
         qc.append(OOP_adder(k),[*a1,*a0,*sum_a])
         qc.append(OOP_adder(k),[*b1,*b0,*sum_b])
@@ -50,21 +48,21 @@ def karatsuba(a, b, n_a, n_b, N):
     for i in range(len(p2)):
         qc.cx(p2[i], R2[i])
         
-    qc.append(AS_adder(len(p0), len(M)).inverse(), [*p0, *M, anc])
-    qc.append(AS_adder(len(p2), len(M)).inverse(), [*p2, *M, anc])
+    qc.append(IP_adder(len(p0), len(M)).inverse(), [*p0, *M, anc])
+    qc.append(IP_adder(len(p2), len(M)).inverse(), [*p2, *M, anc])
     
-    qc.append(AS_adder(len(M), len(R1)), [*M, *R1, anc])
+    qc.append(IP_adder(len(M), len(R1)), [*M, *R1, anc])
     
-    qc.append(AS_adder(len(p2), len(M)), [*p2, *M, anc])
-    qc.append(AS_adder(len(p0), len(M)), [*p0, *M, anc])
+    qc.append(IP_adder(len(p2), len(M)), [*p2, *M, anc])
+    qc.append(IP_adder(len(p0), len(M)), [*p0, *M, anc])
     
     qc.append(karatsuba(len(sum_a), len(sum_b)).inverse(), [*sum_a, *sum_b, *M])
     qc.append(karatsuba(len(a1), len(b1)).inverse(), [*a1, *b1, *p2])
     qc.append(karatsuba(len(a0), len(b0)).inverse(), [*a0, *b0, *p0])
     
     if odd:
-        qc.append(AS_adder(k, len(b0)).inverse(), [*b1, *sum_b, anc])
-        qc.append(AS_adder(k, len(a0)).inverse(), [*a1, *sum_a, anc])
+        qc.append(IP_adder(k, len(b0)).inverse(), [*b1, *sum_b, anc])
+        qc.append(IP_adder(k, len(a0)).inverse(), [*a1, *sum_a, anc])
         for i in reversed(range(len(b0))):
             qc.cx(b0[i], sum_b[i])
         for i in reversed(range(len(a0))):
@@ -81,7 +79,7 @@ def RP(a, b, n_a, n_b, N):
     a = qc.qubits[:n_a]
     b = qc.qubits[n_a: n_a + n_b]
     R = qc.qubits[n_a + n_b: 2*(n_a + n_b)]
-    c_adder = adder.control(1)
+    c_adder = OOP_adder(n_a,n_b).to_gate().control(1),[*a, *b, *R]
     for i in range(n_a):
         acc_slice = R[i : i + n_b]
         qc.append(c_adder, [a[i]] + b[:] + acc_slice)
@@ -107,8 +105,7 @@ def Dadda(a, b, n_a, n_b, N):
         D[j] = Dj
         Dj = 3 * Dj // 2        
 """
-    
-def booth(a, b, n_a, n_b, N):
+def booth(a, b, n_a, n_b):
     qc = QuantumCircuit()
     
     a = qc.qubits[:n_a]
@@ -129,14 +126,14 @@ def booth(a, b, n_a, n_b, N):
         else: 
             qc.append(booth_multiplexer(), [mult[j], mult[j-1], mult[j-2], flags, anc])
         t0 = R[j-1 :]
-        qc.append(AS_adder(len(add), len(t0)).to_gate().control(1), [flags[0], *add, *t0, anc])
+        qc.append(IP_adder(len(add), len(t0)).to_gate().control(1), [flags[0], *add, *t0, anc])
         
         t1 = R[j :]
-        qc.append(AS_adder(len(add), len(t1)).to_gate().control(1), [flags[1], *add, *t1, anc])
+        qc.append(IP_adder(len(add), len(t1)).to_gate().control(1), [flags[1], *add, *t1, anc])
         
-        qc.append(AS_adder(len(add), len(t0)).to_gate().inverse().control(1), [flags[2], *add, *t0, anc])
+        qc.append(IP_adder(len(add), len(t0)).to_gate().inverse().control(1), [flags[2], *add, *t0, anc])
         
-        qc.append(AS_adder(len(add), len(t1)).to_gate().inverse().control(1), [flags[3], *add, *t1, anc])
+        qc.append(IP_adder(len(add), len(t1)).to_gate().inverse().control(1), [flags[3], *add, *t1, anc])
         
         if j == 1:
             qc.append(booth_multiplexer_simple().inverse(), [mult[j], mult[j-1], flags])

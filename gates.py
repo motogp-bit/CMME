@@ -34,14 +34,14 @@ def booth_multiplexer_simple():
     qc.x(y)
     return qc.to_gate()
 
-def AS_adder(n_a, n_b):
-
-    qc = QuantumCircuit()
+def IP_adder(n_a, n_b):
+    #a is always the smaller register
+    qc = QuantumCircuit(n_a + n_b + 1)
     a = qc.qubits[:n_a]
     b = qc.qubits[n_a:n_a + n_b]
     c = qc.qubits[-1]
 
-    for i in range(n):
+    for i in range(n_a):
         qc.cx(c, a[i])
         qc.cx(c, b[i])
         qc.ccx(a[i], b[i], c)
@@ -61,13 +61,57 @@ def AS_adder(n_a, n_b):
         
     return qc.to_gate()
 
-def OOP_adder(n):
+def OOP_adder(n_a, n_b):
+    #a is always the smaller register
     
-    qc = QuantumCircuit(a, b, s)
-    a = qc.qubits[:n]
-    b = qc.qubits[n:2*n]
-    s = qc.qubits[2*n:3*n + 1]
-    vbe_gate = VBERippleCarryAdder(num_state_qubits=n).to_gate()
-    qc.append(vbe_gate, [*a, *b, *s[:n], s[n]])
+    qc = QuantumCircuit(n_a + 2*n_b + 2)
     
+    a = qc.qubits[:n_a]
+    b = qc.qubits[n_a : n_a + n_b]
+    s = qc.qubits[n_a + n_b : n_a + 2* n_b + 1]
+    anc = qc.qubits[-1]
+    
+        
+    for i in range(n_b):
+        qc.cx(b[i], s[i])
+        
+    qc.append(IP_adder(n_a, n_b + 1), [*a, *s, anc])
     return qc.to_gate()
+
+def gen_splits(max_bits, cutoff=11):
+    dp = {}
+    best_split = {}
+    
+    for n in range(1, cutoff + 1):
+        dp[n] = 4 * (n ** 2) - 3 * n
+        
+    for n in range(cutoff + 1, max_bits + 1):
+        min_cost = float('inf')
+        optimal_k = n // 2 
+        
+        for k in range(1, n):
+            size_x0 = k
+            size_x1 = n - k
+            
+            size_mid = max(size_x0, size_x1) 
+            
+            cost_mults = dp[size_x1] + dp[size_x0] + dp[size_mid]
+            cost_adders = 4 * (2 * n) + 4 * (2 * size_mid)
+            
+            total_cost = cost_mults + cost_adders
+            
+            if total_cost < min_cost:
+                min_cost = total_cost
+                optimal_k = k
+        
+        naive_cost = 4 * (n ** 2) - 3 * n
+        if naive_cost < min_cost:
+            dp[n] = naive_cost
+            best_split[n] = None
+        else:
+            dp[n] = min_cost
+            best_split[n] = optimal_k
+            
+    return best_split, dp
+
+optimal_splits, min_gate_costs = gen_splits(32, cutoff=11)
