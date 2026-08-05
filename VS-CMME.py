@@ -10,10 +10,10 @@ def CMMC(n, constant):
             qc.cx(ctrl, reg[j])
     return qc.to_gate()
 
-def build_tree(circuit, regs, N):
+def build_tree(qc, regs, N, index):
     layers = [regs]
     current_level = regs
-    
+    markers = []
     while len(current_level) > 1:
         next_level = []
         tier_size = len(current_level)
@@ -22,42 +22,48 @@ def build_tree(circuit, regs, N):
         for i in range(midpoint):
             ln = current_level[i]
             rn = current_level[tier_size - 1 - i]
-            
             out_size = len(ln) + len(rn)
-            new_register = QuantumRegister(out_size)
-            circuit.add_register(new_register)
+            newreg = qc.qubits[index: index + out_size]
             
             if out_size >= N:
                 pass
                 # modular
             else:
                 pass
-                # regular
+                qc.append(OOP_adder(len(ln), len(rn)), [*ln, *rn, *newreg])
                 
-            next_level.append(new_register)
-            
+            next_level.append(newreg)
+            index = index + out_size
         if tier_size % 2 != 0:
             next_level.append(current_level[midpoint])
             
         layers.append(next_level)
         current_level = next_level
-        
-    return layers
+        markers.append(tier_size)
+    return layers, markers 
 
-def invert_folding_tree(log):
+def invert_tree(qc, layers, markers, N):
+    depth = len(markers)
     
-    log.reverse()
-    
-    for operation in log:
-        op_type, ln, rn = operation
+    for d in range(depth - 1, -1, -1):
+        upper_tier = layers[d + 1]
+        lower_tier = layers[d]
         
-        if op_type == 1:
-            pass
-            # modular
-        else:
-            pass
-            #regular
+        tier_size = markers[d]
+        midpoint = tier_size // 2
+        
+        for i in range(midpoint - 1, -1, -1):
+            ln = lower_tier[i]
+            rn = lower_tier[tier_size - 1 - i]
             
+            output_reg = upper_tier[i]
+            out_size = len(ln) + len(rn)
+            
+            if out_size >= N:
+                pass
+                # inverse modular logic
+            else:
+                qc.append(OOP_adder(len(ln), len(rn)).inverse(), [*ln, *rn, *output_reg])
             
 def main(sizes,total_size, n, N):
     optimal_splits, min_gate_costs = gen_splits(max_bits=32)

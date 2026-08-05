@@ -127,14 +127,10 @@ def booth(a, b, n_a, n_b):
             qc.append(booth_multiplexer(), [mult[j], mult[j-1], mult[j-2], flags, anc])
         t0 = R[j-1 :]
         qc.append(IP_adder(len(add), len(t0)).to_gate().control(1), [flags[0], *add, *t0, anc])
-        
         t1 = R[j :]
         qc.append(IP_adder(len(add), len(t1)).to_gate().control(1), [flags[1], *add, *t1, anc])
-        
         qc.append(IP_adder(len(add), len(t0)).to_gate().inverse().control(1), [flags[2], *add, *t0, anc])
-        
         qc.append(IP_adder(len(add), len(t1)).to_gate().inverse().control(1), [flags[3], *add, *t1, anc])
-        
         if j == 1:
             qc.append(booth_multiplexer_simple().inverse(), [mult[j], mult[j-1], flags])
         else: 
