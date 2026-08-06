@@ -74,15 +74,21 @@ def karatsuba(a, b, n_a, n_b, optimal_splits):
     
     
     
-def RP(a, b, n_a, n_b, N):
-    qc = QuantumCircuit(2*(n_a + n_b))
+def RP(n_a, n_b):
+    total_qubits = 2 * (n_a + n_b)
+    qc = QuantumCircuit(total_qubits)
+    
     a = qc.qubits[:n_a]
-    b = qc.qubits[n_a: n_a + n_b]
-    R = qc.qubits[n_a + n_b: 2*(n_a + n_b)]
-    c_adder = OOP_adder(n_a,n_b).to_gate().control(1),[*a, *b, *R]
+    b = qc.qubits[n_a : n_a + n_b]
+    R = qc.qubits[n_a + n_b : 2 * (n_a + n_b)]
+    
+    c_adder = OOP_adder(n_b, n_b + 1).to_gate().control(1)
+    
     for i in range(n_a):
-        acc_slice = R[i : i + n_b]
+        acc_slice = R[i : i + n_b + 1]
+        
         qc.append(c_adder, [a[i]] + b[:] + acc_slice)
+        
     return qc.to_gate()
 
 """

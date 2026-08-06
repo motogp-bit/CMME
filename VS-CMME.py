@@ -10,7 +10,7 @@ def CMMC(n, constant):
             qc.cx(ctrl, reg[j])
     return qc.to_gate()
 
-def build_tree(qc, regs, N, index):
+def build_tree(qc, regs, n,  N, index, optimal_splits):
     layers = [regs]
     current_level = regs
     markers = []
@@ -27,10 +27,10 @@ def build_tree(qc, regs, N, index):
             
             if out_size >= N:
                 pass
-                # modular
+                qc.append()
             else:
                 pass
-                qc.append(OOP_adder(len(ln), len(rn)), [*ln, *rn, *newreg])
+                qc.append(karatsuba)
                 
             next_level.append(newreg)
             index = index + out_size
@@ -42,7 +42,7 @@ def build_tree(qc, regs, N, index):
         markers.append(tier_size)
     return layers, markers 
 
-def invert_tree(qc, layers, markers, N):
+def invert_tree(qc, layers, markers, n, N):
     depth = len(markers)
     
     for d in range(depth - 1, -1, -1):
@@ -61,7 +61,6 @@ def invert_tree(qc, layers, markers, N):
             
             if out_size >= N:
                 pass
-                # inverse modular logic
             else:
                 qc.append(OOP_adder(len(ln), len(rn)).inverse(), [*ln, *rn, *output_reg])
             
@@ -77,6 +76,8 @@ def main(sizes,total_size, n, N):
     c = qc.qubits[mark: mark + 1]
     for i in range(len(regs)):
         qc.append(CMMC(sizes[i],constants[i]), [*c, regs[i]])
-    final_reg, log = build_tree(qc, regs, n, N)
+    tree, markers = build_tree(qc, regs, n, N, index, optimal_splits)
+    #accumulator
+    invert_tree(qc,tree,markers,n,N)
     
 #OUT OF PLACE MULTIPLICATION LOGIC
