@@ -112,7 +112,7 @@ def Dadda(a, b, n_a, n_b, N):
         Dj = 3 * Dj // 2        
 """
 def booth(a, b, n_a, n_b):
-    qc = QuantumCircuit()
+    qc = QuantumCircuit(2* n_a + 2* n_b + 5)
     
     a = qc.qubits[:n_a]
     b = qc.qubits[n_a: n_a + n_b]
@@ -132,13 +132,16 @@ def booth(a, b, n_a, n_b):
         else: 
             qc.append(booth_multiplexer(), [mult[j], mult[j-1], mult[j-2], flags, anc])
         t0 = R[j-1 :]
-        qc.append(IP_adder(len(add), len(t0)).to_gate().control(1), [flags[0], *add, *t0, anc])
+        qc.append(IP_adder(len(add), len(t0)).to_gate().control(1), [anc, flags[0], *add, *t0])
         t1 = R[j :]
-        qc.append(IP_adder(len(add), len(t1)).to_gate().control(1), [flags[1], *add, *t1, anc])
-        qc.append(IP_adder(len(add), len(t0)).to_gate().inverse().control(1), [flags[2], *add, *t0, anc])
-        qc.append(IP_adder(len(add), len(t1)).to_gate().inverse().control(1), [flags[3], *add, *t1, anc])
+        qc.append(IP_adder(len(add), len(t1)).to_gate().control(1), [anc, flags[1], *add, *t1])
+        qc.append(IP_adder(len(add), len(t0)).to_gate().inverse().control(1), [anc, flags[2], *add, *t0])
+        qc.append(IP_adder(len(add), len(t1)).to_gate().inverse().control(1), [anc, flags[3], *add, *t1])
         if j == 1:
             qc.append(booth_multiplexer_simple().inverse(), [mult[j], mult[j-1], flags])
         else: 
-            qc.append(booth_multiplexer().inverse(), [mult[j], mult[j-1], mult[j-2], flags, anc])
+            qc.append(booth_multiplexer().inverse(), [ ult[j], mult[j-1], mult[j-2], flags])
+    #fix missing msb
+    
+    
     
