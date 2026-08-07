@@ -115,3 +115,49 @@ def gen_splits(max_bits, cutoff=11):
     return best_split, dp
 
 optimal_splits, min_gate_costs = gen_splits(32, cutoff=11)
+
+def add_constant(N, n):
+    z = 0
+    while N % 2 == 0:
+        N = N // 2
+        z+=1
+    qc = QuantumCircuit(2*n - 3)
+    x = qc.qubits[z:n]
+    anc = qc.qubits[n:2*n - 3]
+    #bit_array = N as an array of bits
+    for i in range(bit_array):
+        compute_MAJ(x, y, target, bit_array[i])
+    #CONTINUE FROM HERE 
+        
+
+
+def shift_and_reduce(N, n):
+    qc = QuantumCircuit(n + 1)
+    
+    x = qc.qubits[:n]
+    anc = qc.qubits[n:2*n - 3]
+    ctrl = qc.qubits[-1]
+    
+    shifted_x = [*anc, *x]
+    
+    qc.append(add_constant(N, n + 1).inverse(), [*x, *anc])
+    
+    c = shifted_x[n:n+1]
+    
+    qc.append(add_constant(N, n).control(1), [*c, *shifted_x[0:n]])
+    
+    qc.x(shifted_x[n])
+    qc.cx(shifted_x[0], shifted_x[n])
+    
+    return qc.to_gate()
+
+def QMA(n, N):
+    qc = QuantumCircuit()
+    x = qc.qubits[:n]
+    y = qc.qubits[n:2*n]
+    acc = qc.qubits[2*n:3*n]
+    anc = qc.qubits[-1]
+    for i in range(n):
+        qc.append(DraperQFTAdder(n).control(1), [*y[i],*x,*acc])
+        qc.append(shift_and_reduce(N, n), [*x, *anc])
+    return qc.to_gate()
