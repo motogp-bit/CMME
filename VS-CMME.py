@@ -30,7 +30,7 @@ def build_tree(qc, regs, n,  N, index, optimal_splits):
                 qc.append()
             else:
                 pass
-                qc.append(karatsuba)
+                #multiplication
                 
             next_level.append(newreg)
             index = index + out_size
