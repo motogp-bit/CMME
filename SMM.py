@@ -7,26 +7,21 @@ from qiskit.circuit.library import QFT
 def QQM(n: int) -> QuantumCircuit:
     qc = QuantumCircuit(4 * n)
     
-    # Slice the circuit's qubits directly into lists of Qubit objects
     x = qc.qubits[0:n]
     y = qc.qubits[n:2 * n]
     w = qc.qubits[2 * n:4 * n]
     
-    # Pass the unpacked list of qubits directly to the gate
     qc.append(QFT(num_qubits=2*n, do_swaps=True).to_gate(), [*w])
     PTP(qc, 2 * np.pi / (2 ** (2 * n)), x, y, w, n)
     qc.append(QFT(num_qubits=2*n, do_swaps=True).inverse().to_gate(), [*w])
     
-    return qc
+    return qc.to_gate()
 
 def PTP(n: int, n_z: int, phi: float, cutoff: int = 4):
-
     qc = QuantumCircuit(2 * n + n_z)
-    
     rx = qc.qubits[0 : n]
     ry = qc.qubits[n : 2 * n]
     rz = qc.qubits[2 * n : 2 * n + n_z]
-
     if n <= cutoff:
         for i in range(n):
             for j in range(n):
@@ -94,9 +89,9 @@ def PTPC(m: int, phi: float, cutoff: int = 4):
     qc.append(correction_g(m, phi), [*rx0, *rx1, *ry0, *ry1, *rz0, *rz1])
     
 
-    qc.append(cuccaro_1(m), [*rx0[:m-1], *rx1[:m-1], dcx_in])
-    qc.append(cuccaro_1(m), [*ry0[:m-1], *ry1[:m-1], dcy_in])
-    qc.append(cuccaro_1(m), [*rz0[:m-1], *rz1[:m-1], dcz_in])
+    qc.append(cuccaro_1(m-1), [*rx0[:m-1], *rx1[:m-1], dcx_in])
+    qc.append(cuccaro_1(m-1), [*ry0[:m-1], *ry1[:m-1], dcy_in])
+    qc.append(cuccaro_1(m-1), [*rz0[:m-1], *rz1[:m-1], dcz_in])
     
     for i in range(m-1):
         for j in range(m-1):
@@ -108,25 +103,16 @@ def PTPC(m: int, phi: float, cutoff: int = 4):
             qc.mcp(wt, control_qubits=[dcx_out, ry1[i]], target_qubit=rz1[j])
             qc.mcp(wt, control_qubits=[dcy_out, rx1[i]], target_qubit=rz1[j])
             
-    qc.append(cuccaro_2(m), [*rx0[:m-1], *rx1[:m-1], dcx_in])
-    qc.append(cuccaro_2(m), [*ry0[:m-1], *ry1[:m-1], dcy_in])
-    qc.append(cuccaro_2(m), [*rz0[:m-1], *rz1[:m-1], dcz_in])
+    qc.append(cuccaro_2(m-1), [*rx0[:m-1], *rx1[:m-1], dcx_in])
+    qc.append(cuccaro_2(m-1), [*ry0[:m-1], *ry1[:m-1], dcy_in])
+    qc.append(cuccaro_2(m-1), [*rz0[:m-1], *rz1[:m-1], dcz_in])
     
     qc.append(PTP(m-1, m-1, phi, cutoff), [*rx1[:m-1], *ry1[:m-1], *rz1[:m-1]])
     
-    qc.append(cuccaro_inv(m), [*rz0[:m-1], *rz1[:m-1], dcz_in])
-    qc.append(cuccaro_inv(m), [*ry0[:m-1], *ry1[:m-1], dcy_in])
-    qc.append(cuccaro_inv(m), [*rx0[:m-1], *rx1[:m-1], dcx_in])
+    qc.append(cuccaro_inv(m-1), [*rz0[:m-1], *rz1[:m-1], dcz_in])
+    qc.append(cuccaro_inv(m-1), [*ry0[:m-1], *ry1[:m-1], dcy_in])
+    qc.append(cuccaro_inv(m-1), [*rx0[:m-1], *rx1[:m-1], dcx_in])
     
     return qc.to_gate(label="PTPC")
 
 
-
-
-
-
-def cuccaro_inv(m: int) -> Gate:
-    return Gate('cuccaro_inverse', num_qubits=m, params=[])
-
-def correction_g(m: int, phi: float) -> Gate:
-    return Gate('dirty_carry_correction', num_qubits=3*m, params=[phi])

@@ -235,49 +235,37 @@ def ACMOD(a: int, n: int):
         
     n_prime = n - z
     b_active = b[z : n]
-    
     a_bits = [(a >> i) & 1 for i in range(n_prime)] 
-    
     if n_prime < 4:
         qc.append(fallback_small_adder(a_bits, n_prime), [*b_active])
         return
-        
     anc = ancillas[0 : n_prime - 3]
-
     if a_bits[1]:
         qc.x(b_active[0])
         qc.x(b_active[1])
-        
     qc.ccx(b_active[0], b_active[1], anc[0])
     
     if a_bits[1] ^ a_bits[2]:
         qc.x(anc[0])
-
     for i in range(2, n_prime - 2):
         if a_bits[i]:
             qc.x(b_active[i])
-            
         qc.ccx(b_active[i], anc[i-2], anc[i-1])
-        
         if a_bits[i] ^ a_bits[i+1]:
             qc.x(anc[i-1])
 
     if a_bits[n_prime-2]:
         qc.x(b_active[n_prime-2])
         qc.x(anc[n_prime-4])
-        
     qc.ccx(b_active[n_prime-2], anc[n_prime-4], b_active[n_prime-1])
-    
     if a_bits[n_prime-2]:
         qc.x(b_active[n_prime-2])
         qc.x(anc[n_prime-4])
-        
     if a_bits[n_prime-2] ^ a_bits[n_prime-1]:
         qc.x(b_active[n_prime-1])
 
     for i in range(n_prime - 2, 1, -1):
         qc.cx(anc[i-2], b_active[i])
-        
         if a_bits[i]:
             qc.x(b_active[i])
             
@@ -286,13 +274,10 @@ def ACMOD(a: int, n: int):
         else: 
             qc.append(UMajAnd(a_bits[1]), [b_active[1], b_active[0], anc[0]],[c])
     qc.cx(b_active[0], b_active[1])
-    
     if a_bits[1]:
         qc.x(b_active[1])
-        
     qc.x(b_active[0])
     qc.cx(*[b_active[0], b_active[1]])
-    
     if a_bits[1]:
         qc.x(*[b_active[1]])
         
@@ -310,30 +295,21 @@ def CACMOD(a: int, n: int):
     a = a % (2**n)
     if not a: 
         return
-    
     z = 0
     while not a % 2:
         a = a // 2
         z += 1
-        
     n_prime = n - z
     b_active = b[z : n]
-    
     a_bits = [(a >> i) & 1 for i in range(n_prime)]
-    
     anc = ancillas[0 : n_prime - 2] 
-
     qc.append(MajAnd(a_bits[1]), [b_active[1], b_active[0], anc[0]])
-    
     if a_bits[1] ^ a_bits[2]:
         qc.x(anc[0])
-
     for i in range(2, n_prime - 1):
         qc.append(MajAnd(a_bits[i]), [b_active[i], anc[i-2], anc[i-1]])
-        
         if a_bits[i] ^ a_bits[i+1]:
             qc.x(anc[i-1])
-
     qc.ccx(ctrl, anc[n_prime-3], b_active[n_prime-1])
     
     if a_bits[n_prime-1]:
@@ -355,7 +331,7 @@ def CACMOD(a: int, n: int):
             
 
 def cuccaro_1(m: int):
-    qc = QuantumCircuit(2*m + 1)
+    qc = QuantumCircuit(2*m - 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -365,7 +341,7 @@ def cuccaro_1(m: int):
     return qc.to_gate()
 
 def cuccaro_2(m: int):
-    qc = QuantumCircuit(2*m + 1)
+    qc = QuantumCircuit(2*m - 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -374,7 +350,12 @@ def cuccaro_2(m: int):
 
     qc.append(UMA(), [x[0], y[0], c])
     
-    
+def cuccaro_inv(m: int):
+    qc = QuantumCircuit(2 * m - 1)
+    qc.append(cuccaro_1(m), qc.qubits)
+    qc.append(cuccaro_2(m), qc.qubits)
+    return qc.inverse().to_gate(label="cuccaro_inv")
+
 def shift_and_reduce(N: int, n: int):
     qc = QuantumCircuit(2 * n + 5, 1)
     q = qc.qubits[:n+1]
@@ -407,3 +388,27 @@ def QMA(n: int, N: int):
         qc.append(shift_and_reduce(N, n), [*x, anc])
     return qc.to_gate()
 
+def correction_g(m: int, phi: float):
+
+    qc = QuantumCircuit(6 * m, name="correction_g")
+    
+    rx0 = qc.qubits[0 : m]
+    rx1 = qc.qubits[m : 2 * m]
+    ry0 = qc.qubits[2 * m : 3 * m]
+    ry1 = qc.qubits[3 * m : 4 * m]
+    rz0 = qc.qubits[4 * m : 5 * m]
+    rz1 = qc.qubits[5 * m : 6 * m]
+    
+    dcx = rx0[m-1]
+    dcy = ry0[m-1]
+    dcz = rz0[m-1]
+    
+    for i in range(m - 1):
+        for j in range(m - 1):
+            wt = -phi * (2**(m-1 + i + j))
+            
+            qc.mcphase(wt, control_qubits=[dcx, ry1[i]], target_qubit=rz1[j])
+            qc.mcphase(wt, control_qubits=[dcy, rx1[i]], target_qubit=rz1[j])
+            qc.mcphase(wt, control_qubits=[rx1[i], ry1[j]], target_qubit=dcz)
+            
+    return qc.to_gate()

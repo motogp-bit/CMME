@@ -27,7 +27,7 @@ def build_tree(qc, regs, n,  N, index, optimal_splits):
             
             if out_size >= n:
                 pass
-                qc.append()
+                qc.append(QQM(n), [*ln, *rn, *newreg])
             else:
                 pass
                 #multiplication
@@ -56,13 +56,13 @@ def invert_tree(qc, layers, markers, n, N):
             ln = lower_tier[i]
             rn = lower_tier[tier_size - 1 - i]
             
-            output_reg = upper_tier[i]
+            newreg = upper_tier[i]
             out_size = len(ln) + len(rn)
             
             if out_size >= n:
-                pass
+                qc.append(QQM(n).inverse(), [*ln, *rn, *newreg])
             else:
-                qc.append(OOP_adder(len(ln), len(rn)).inverse(), [*ln, *rn, *output_reg])
+            #something    
             
 def main(sizes,total_size, n, N):
     optimal_splits, min_gate_costs = gen_splits(max_bits=32)
