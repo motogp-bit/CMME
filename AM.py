@@ -3,7 +3,7 @@ from qiskit import QuantumCircuit
 import numpy as np
 
 
-def karatsuba(a, b, n_a, n_b, optimal_splits): 
+def karatsuba(a: int, b: int, n_a: int, n_b: int, optimal_splits: int): 
     if n_a == 1 and n_b == 1:
         qc = QuantumCircuit(3)
         qc.ccx(0, 1, 2)
@@ -74,7 +74,7 @@ def karatsuba(a, b, n_a, n_b, optimal_splits):
     
     
     
-def RP(n_a, n_b):
+def RPM(n_a: int, n_b: int):
     total_qubits = 2 * (n_a + n_b)
     qc = QuantumCircuit(total_qubits)
     

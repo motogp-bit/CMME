@@ -25,7 +25,7 @@ def build_tree(qc, regs, n,  N, index, optimal_splits):
             out_size = len(ln) + len(rn)
             newreg = qc.qubits[index: index + out_size]
             
-            if out_size >= N:
+            if out_size >= n:
                 pass
                 qc.append()
             else:
@@ -59,14 +59,14 @@ def invert_tree(qc, layers, markers, n, N):
             output_reg = upper_tier[i]
             out_size = len(ln) + len(rn)
             
-            if out_size >= N:
+            if out_size >= n:
                 pass
             else:
                 qc.append(OOP_adder(len(ln), len(rn)).inverse(), [*ln, *rn, *output_reg])
             
 def main(sizes,total_size, n, N):
     optimal_splits, min_gate_costs = gen_splits(max_bits=32)
-    qc = QuantumCircuit(total_size* n)
+    qc = QuantumCircuit(total_size * n)
     constants = []
     mark = 0
     regs = []

@@ -1,5 +1,6 @@
 from qiskit.circuit.library import DraperQFTAdder
-from qiskit.circuit.library import VBERippleCarryAdder
+from qiskit.circuit.library import SXdgGate
+from qiskit.circuit.library import QFT
 from qiskit import QuantumCircuit
 """
 def booth_multiplexer():
@@ -35,7 +36,7 @@ def booth_multiplexer_simple():
     return qc.to_gate()
 """
 
-def IP_adder(n_a, n_b):
+def IP_adder(n_a: int, n_b: int):
     #a is always the smaller register
     qc = QuantumCircuit(n_a + n_b + 1)
     a = qc.qubits[:n_a]
@@ -62,24 +63,41 @@ def IP_adder(n_a, n_b):
         
     return qc.to_gate()
 
-def OOP_adder(n_a, n_b):
-    #a is always the smaller register
-    
-    qc = QuantumCircuit(n_a + 2*n_b + 2)
+def OOP_adder(n_a : int, n_b: int):
+    #b is the larger register
+    qc = QuantumCircuit(n_a + 2 * n_b + 1)
     
     a = qc.qubits[:n_a]
     b = qc.qubits[n_a : n_a + n_b]
-    s = qc.qubits[n_a + n_b : n_a + 2* n_b + 1]
-    anc = qc.qubits[-1]
+    s = qc.qubits[n_a + n_b : n_a + 2 * n_b + 1]
     
-        
+    csxdg = SXdgGate().control(1)
+    
     for i in range(n_b):
-        qc.cx(b[i], s[i])
+        b_qubit = b[i]
+        c_in = s[i]
+        c_out = s[i+1]
         
-    qc.append(IP_adder(n_a, n_b + 1), [*a, *s, anc])
+        if i < n_a:
+            a_qubit = a[i]
+            
+            qc.csx(a_qubit, c_out)
+            qc.csx(b_qubit, c_out)
+            qc.cx(a_qubit, b_qubit)
+            qc.csx(c_in, c_out)
+            qc.cx(b_qubit, c_in)
+            qc.append(csxdg, [c_in, c_out])
+            
+            qc.cx(a_qubit, b_qubit)
+        else:
+            qc.csx(b_qubit, c_out)
+            qc.csx(c_in, c_out)
+            qc.cx(b_qubit, c_in)
+            qc.append(csxdg, [c_in, c_out])
+            
     return qc.to_gate()
 
-def gen_splits(max_bits, cutoff=11):
+def gen_splits(max_bits: int, cutoff=11):
     dp = {}
     best_split = {}
     
@@ -150,7 +168,7 @@ def AND_adjoint():
     qc.reset(ta)
     return qc.to_instruction()
     
-def MajAnd(a_i):
+def MajAnd(a_i: int):
     qc = QuantumCircuit(3)
     x = qc.qubits[0]
     y = qc.qubits[1]
@@ -166,7 +184,7 @@ def MajAnd(a_i):
         qc.x(y)
     return qc.to_gate()
 
-def UMajAnd(a_i):
+def UMajAnd(a_i: int):
     qc = QuantumCircuit(3,1)
     x = qc.qubits[0]
     y = qc.qubits[1]
@@ -182,7 +200,7 @@ def UMajAnd(a_i):
         qc.x(x)
         qc.x(y)
     
-def ACMOD(a, n):
+def ACMOD(a: int, n: int):
     qc = QuantumCircuit(2*n + 3,1)
     b = qc.qubits[:n]
     ancillas = qc.qubits[n: 2*n + 3]
@@ -263,7 +281,7 @@ def ACMOD(a, n):
 
 
 
-def CACMOD(a, n):
+def CACMOD(a: int, n: int):
     qc = QuantumCircuit(2*n + 3,1)
     ctrl = qc.qubits[0]
     b = qc.qubits[1:n+1]
@@ -316,24 +334,9 @@ def CACMOD(a, n):
         else:
             qc.append(UMajAnd(a_bits[1]), [b_active[1], b_active[0], anc[0]],[c])
             
-            
-"""
-def add_constant(N, n):
-    z = 0
-    while N % 2 == 0:
-        N = N // 2
-        z+=1
-    qc = QuantumCircuit(2*n - 3)
-    x = qc.qubits[z:n]
-    anc = qc.qubits[n:2*n - 3]
-    #bit_array = N as an array of bits
-    for i in range(bit_array):
-        compute_MAJ(x, y, target, bit_array[i])
-    #CONTINUE FROM HERE 
-"""       
 
 
-def shift_and_reduce(N, n):
+def shift_and_reduce(N: int, n: int):
     qc = QuantumCircuit(2 * n + 5, 1)
     
     q = qc.qubits[:n+1]
@@ -355,8 +358,8 @@ def shift_and_reduce(N, n):
     
     return qc.to_instruction()
 
-def QMA(n, N):
-    qc = QuantumCircuit()
+def QMA(n: int, N: int):
+    qc = QuantumCircuit(3*n + 1)
     x = qc.qubits[:n]
     y = qc.qubits[n:2*n]
     acc = qc.qubits[2*n:3*n]
@@ -365,3 +368,4 @@ def QMA(n, N):
         qc.append(DraperQFTAdder(n).control(1), [*y[i],*x,*acc])
         qc.append(shift_and_reduce(N, n), [*x, anc])
     return qc.to_gate()
+
