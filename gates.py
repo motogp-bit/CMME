@@ -199,7 +199,26 @@ def UMajAnd(a_i: int):
     if a_i:
         qc.x(x)
         qc.x(y)
-    
+def MAJ():
+    qc = QuantumCircuit(3)
+    a = qc.qubits[0]
+    b = qc.qubits[1]
+    c = qc.qubits[2]
+    qc.cx(a,b)
+    qc.cx(a,c)
+    qc.ccx(c,b,a)
+    return qc.to_gate()
+
+def UMA():
+    qc = QuantumCircuit(3)
+    a = qc.qubits[0]
+    b = qc.qubits[1]
+    c = qc.qubits[2]   
+    qc.ccx(c,b,a)
+    qc.cx(a,c)
+    qc.cx(c,b)
+    return qc.to_gate()
+
 def ACMOD(a: int, n: int):
     qc = QuantumCircuit(2*n + 3,1)
     b = qc.qubits[:n]
@@ -335,10 +354,29 @@ def CACMOD(a: int, n: int):
             qc.append(UMajAnd(a_bits[1]), [b_active[1], b_active[0], anc[0]],[c])
             
 
+def cuccaro_1(m: int):
+    qc = QuantumCircuit(2*m + 1)
+    x = qc.qubits[:m]
+    y = qc.qubits[m:2*m]
+    c = qc.qubits[-1]
+    qc.append(MAJ(),[x[0], y[0], c])
+    for i in range(m - 1):
+        qc.append(MAJ(),[x[i+1],y[i+1],x[i]])
+    return qc.to_gate()
 
+def cuccaro_2(m: int):
+    qc = QuantumCircuit(2*m + 1)
+    x = qc.qubits[:m]
+    y = qc.qubits[m:2*m]
+    c = qc.qubits[-1]
+    for i in reversed(range(m - 1)):
+        qc.append(UMA(), [x[i + 1], y[i + 1], x[i]])
+
+    qc.append(UMA(), [x[0], y[0], c])
+    
+    
 def shift_and_reduce(N: int, n: int):
     qc = QuantumCircuit(2 * n + 5, 1)
-    
     q = qc.qubits[:n+1]
     anc = qc.qubits[n+1:]
     c = qc.clbits[0]
