@@ -1,5 +1,6 @@
 from qiskit.circuit.library import SXdgGate
 from qiskit import QuantumCircuit
+import numpy as np 
 
 def copy(n: int, n1):
     qc = QuantumCircuit(n + n1)
@@ -124,7 +125,7 @@ def UMA():
     return qc.to_gate()
 
 def cuccaro_1(m: int):
-    qc = QuantumCircuit(2*m - 1)
+    qc = QuantumCircuit(2*m + 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -134,7 +135,7 @@ def cuccaro_1(m: int):
     return qc.to_gate()
 
 def cuccaro_2(m: int):
-    qc = QuantumCircuit(2*m - 1)
+    qc = QuantumCircuit(2*m + 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -142,6 +143,7 @@ def cuccaro_2(m: int):
         qc.append(UMA(), [x[i + 1], y[i + 1], x[i]])
 
     qc.append(UMA(), [x[0], y[0], c])
+    return qc.to_gate()
     
 def cuccaro_inv(m: int):
     qc = QuantumCircuit(2 * m - 1)
@@ -157,10 +159,8 @@ def correction_g(m: int, phi: float):
     ry1 = qc.qubits[3 * m : 4 * m]
     rz0 = qc.qubits[4 * m : 5 * m]
     rz1 = qc.qubits[5 * m : 6 * m]
-    dcx = rx0[m-1]
-    dcy = ry0[m-1]
-    dcz = rz0[m-1]
-    
+    dcx, dcy, dcz = rx0[m-1], ry0[m-1], rz0[m-1]
+
     for i in range(m - 1):
         for j in range(m - 1):
             wt = -phi * (2**(m-1 + i + j))
@@ -207,3 +207,20 @@ def add_at_offset(n, m, offset):
     qc.append(IP_adder(n, m - offset), [*a, *b[offset:], ancilla])
     
     return qc.to_gate()
+
+def interpol_phases(phi, points, m):
+    q = 7
+    M = np.zeros((q, q))
+    for i, w in enumerate(points):
+        for d in range(q):
+            if w == float('inf'):
+                M[i, d] = 1.0 if d == q - 1 else 0.0
+            else:
+                M[i, d] = w ** d
+    M_inv = np.linalg.inv(M)
+        
+    phases = []
+    for l in range(q):
+        coeff_sum = sum(M_inv[d, l] * (2 ** (m * d)) for d in range(q))
+        phases.append(phi * coeff_sum)
+    return phases

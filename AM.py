@@ -1,4 +1,3 @@
-from collections import defaultdict
 from qiskit import QuantumCircuit,QuantumRegister
 from math import log
 import numpy as np
@@ -187,9 +186,7 @@ def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int
     ToomCook25(qc, a[:], b[:], res[:], scratch[:], dcheck, cutoff, 0)
     return qc.to_gate()
 
-def ToomCook8Way():
-    #WIP    
-    
+
 
 
     
