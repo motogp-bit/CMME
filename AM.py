@@ -93,41 +93,36 @@ def RPM(n_a: int, n_b: int):
         
     return qc.to_gate()
 
-def ToomCook25(n_a, n_b, n_res, dcheck, cutoff = 11, d = 0):
-    
-    qc = QuantumCircuit()
-    a = qc.qubits[:n_a]
-    b = qc.qubits[n_a:n_a + n_b]
-    res = qc.qubits[n_a + n_b: n_a + n_b + n_res]
-    if n_a < cutoff or n_b < cutoff:
-        #qc.append(RPM(n_a,n_b),[*a,*b,*R])
-    elif n_a > n_b:
-        qc.append(ToomCook25(n_b, n_a, n_res, dcheck, cutoff, d), [*b, *a, *res])
+def ToomCook25(qc, a, b, res, scratch, dcheck, cutoff = 11, d = 0):
+    n_a = len(a)
+    n_b = len(b)
+    n_res = len(res)
+    if n_a > n_b:
+        ToomCook25(qc, b, a, res, scratch, dcheck, cutoff, d)
+    elif n_a < cutoff or n_b < cutoff:
+        qc.append(RPM(n_a,n_b), [*a,*b,*res[:n_a + n_b]])
     elif n_b > 1.5 * n_a:
         i = n_b // 3
-        rest = qc.qubits[n_a + n_b + n_res: n_a + n_b + n_res + 12*i + 12]
-        b0 = b[:i]
-        b1 = b[i:2*i]
-        b2 = b[2*i:]
-        j = n_a // 2
-        a0 = a[:j]
-        a1 = a[j:2*j]
-        temp_xq = rest[:i + 1]
-        temp_yq = rest[i+1: 2*i + 3]
-        temp_xr = rest[2*i + 3: 3*i + 4]
-        temp_yr = rest[3*i + 4: 4*i + 6]
-        rest = rest[4*i + 6:]
-        anc = qc.qubits[-1]
+        j = n_a // 2        
+        b0, b1, b2 = b[:i], b[i:2*i], b[2*i:]
+        a0, a1 = a[:j], a[j:]
+        temp_xq = scratch[:i + 1]
+        temp_yq = scratch[i+1 : 2*i + 3]
+        temp_xr = scratch[2*i + 3 : 3*i + 4]
+        temp_yr = scratch[3*i + 4 : 4*i + 6]
+        anc = scratch[4*i + 6]
+        rest = scratch[4*i + 7:]
         qc.append(evaluations(n_a, n_b),[*b0, *b1, *b2, *a0, *a1, *temp_xq, *temp_yq, *temp_xr, *temp_yr, anc])
-        if d < dcheck:
+        if d != dcheck:
             P = rest[:2*i]
             Q = rest[2*i: 4*i + 3]
             R = rest[4*i + 3: 6*i + 6]
             S = rest[6*i + 6: 8*i + 6]
-            qc.append(ToomCook25(i, j), [*a0, *b0, *P])
-            qc.append(ToomCook25(i+1, i+2),[*temp_xq, *temp_yq, *Q])
-            qc.append(ToomCook25(i+1, i + 2),[*temp_xr, *temp_yr, *R])
-            qc.append(ToomCook25(len(a1),len(b2)),[*a1,*b2,*S])
+            c_scratch = rest[8*i + 6:]
+            ToomCook25(qc, a0, b0, P, c_scratch, dcheck, cutoff, d + 1)
+            ToomCook25(qc, temp_xq, temp_yq, Q, c_scratch, dcheck, cutoff, d + 1)
+            ToomCook25(qc, temp_xr, temp_yr, R, c_scratch, dcheck, cutoff, d + 1)
+            ToomCook25(qc, a1, b2, S, c_scratch, dcheck, cutoff, d + 1)
             qc.append(evaluations(n_a, n_b).inverse(), [*b0, *b1, *b2, *a0, *a1, *temp_xq, *temp_yq, *temp_xr, *temp_yr, anc])
             qc.append(IP_adder(2*i, n_res),[*P, *res[0:], anc])
             qc.append(IP_adder(2*i, n_res - 2*i).inverse(),[*P, *res[2*i:], anc])
@@ -138,9 +133,72 @@ def ToomCook25(n_a, n_b, n_res, dcheck, cutoff = 11, d = 0):
             qc.append(IP_adder(2*i + 2, n_res - i).inverse(),[*R[1:], *res[i:], anc])
             qc.append(IP_adder(2*i + 2, n_res - 2*i),[*R[1:], *res[2*i:], anc])
         elif d == dcheck:
-    
-        
-    return qc.to_gate()
+            master_scratch = rest[:2*i + 3]
+            c_scratch = rest[2*i + 3:]
+            p_sub_qubits = [*a0, *b0, *master_scratch[:2*i], *c_scratch]
+            p_sub_qc = QuantumCircuit(len(p_sub_qubits))
+            ToomCook25(
+                p_sub_qc, 
+                p_sub_qc.qubits[:len(a0)], 
+                p_sub_qc.qubits[len(a0):len(a0)+len(b0)], 
+                p_sub_qc.qubits[len(a0)+len(b0):len(a0)+len(b0)+2*i], 
+                p_sub_qc.qubits[len(a0)+len(b0)+2*i:], 
+                dcheck, cutoff, d + 1
+            )
+            p_gate = p_sub_qc.to_gate(label=f"Toom_P_d{d}")
+            
+            qc.append(p_gate, p_sub_qubits) 
+            for idx in range(2*i): qc.cx(master_scratch[idx], res[idx]) 
+            qc.append(p_gate.inverse(), p_sub_qubits) 
+            q_sub_qubits = [*temp_xq, *temp_yq, *master_scratch, *c_scratch]
+            q_sub_qc = QuantumCircuit(len(q_sub_qubits))
+            ToomCook25(
+                q_sub_qc, 
+                q_sub_qc.qubits[:len(temp_xq)], 
+                q_sub_qc.qubits[len(temp_xq):len(temp_xq)+len(temp_yq)], 
+                q_sub_qc.qubits[len(temp_xq)+len(temp_yq):len(temp_xq)+len(temp_yq)+2*i+3], 
+                q_sub_qc.qubits[len(temp_xq)+len(temp_yq)+2*i+3:], 
+                dcheck, cutoff, d + 1
+            )
+            q_gate = q_sub_qc.to_gate(label=f"Toom_Q_d{d}")
+            
+            qc.append(q_gate, q_sub_qubits) 
+            qc.append(IP_adder(2*i + 2, n_res - i), [*master_scratch[1:], *res[i:], anc])
+            qc.append(IP_adder(2*i + 2, n_res - 2*i), [*master_scratch[1:], *res[2*i:], anc])
+            qc.append(q_gate.inverse(), q_sub_qubits) 
+            
+            r_sub_qubits = [*temp_xr, *temp_yr, *master_scratch, *c_scratch]
+            r_sub_qc = QuantumCircuit(len(r_sub_qubits))
+            ToomCook25(
+                r_sub_qc, 
+                r_sub_qc.qubits[:len(temp_xr)], 
+                r_sub_qc.qubits[len(temp_xr):len(temp_xr)+len(temp_yr)], 
+                r_sub_qc.qubits[len(temp_xr)+len(temp_yr):len(temp_xr)+len(temp_yr)+2*i+3], 
+                r_sub_qc.qubits[len(temp_xr)+len(temp_yr)+2*i+3:], 
+                dcheck, cutoff, d + 1
+            )
+            r_gate = r_sub_qc.to_gate(label=f"Toom_R_d{d}")
+            
+            qc.append(r_gate, r_sub_qubits) 
+            qc.append(IP_adder(2*i + 2, n_res - i).inverse(), [*master_scratch[1:], *res[i:], anc])
+            qc.append(IP_adder(2*i + 2, n_res - 2*i), [*master_scratch[1:], *res[2*i:], anc])
+            qc.append(r_gate.inverse(), r_sub_qubits)
+            s_sub_qubits = [*a1, *b2, *master_scratch[:2*i], *c_scratch]
+            s_sub_qc = QuantumCircuit(len(s_sub_qubits))
+            ToomCook25(
+                s_sub_qc, 
+                s_sub_qc.qubits[:len(a1)], 
+                s_sub_qc.qubits[len(a1):len(a1)+len(b2)], 
+                s_sub_qc.qubits[len(a1)+len(b2):len(a1)+len(b2)+2*i], 
+                s_sub_qc.qubits[len(a1)+len(b2)+2*i:], 
+                dcheck, cutoff, d + 1
+            )
+            s_gate = s_sub_qc.to_gate(label=f"Toom_S_d{d}")
+            qc.append(s_gate, s_sub_qubits) 
+            qc.append(IP_adder(2*i, n_res - 3*i), [*master_scratch[:2*i], *res[3*i:], anc])
+            qc.append(IP_adder(2*i, n_res - i).inverse(), [*master_scratch[:2*i], *res[i:], anc])
+            qc.append(s_gate.inverse(), s_sub_qubits)
+            qc.append(evaluations(n_a, n_b).inverse(), [*b0, *b1, *b2, *a0, *a1, *temp_xq, *temp_yq, *temp_xr, *temp_yr, anc])
 
 def ToomCook8Way():
     #WIP
@@ -150,7 +208,7 @@ def ToomCookMultiply(n_a, n_b, cutoff):
     k = np.floor(0.738 * N)
     dcheck = N - k
     qc = QuantumCircuit()
-    qc.append(ToomCookMultiply(n_a, n_b, dcheck, cutoff)[])
+    qc.append(ToomCookMultiply(n_a, n_b, n_a + n_b, dcheck, cutoff)[])
     
     
     
