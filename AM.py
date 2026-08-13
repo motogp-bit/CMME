@@ -1,79 +1,9 @@
 from collections import defaultdict
-from qiskit import QuantumCircuit
+from qiskit import QuantumCircuit,QuantumRegister
 from math import log
 import numpy as np
 from .gates import IP_adder,OOP_adder,evaluations
-
-def karatsuba(a: int, b: int, n_a: int, n_b: int, optimal_splits: int): 
-    #implement craig gidney optimization
-    if n_a == 1 and n_b == 1:
-        qc = QuantumCircuit(3)
-        qc.ccx(0, 1, 2)
-        return qc.to_gate()
-    k = optimal_splits.get(n_a, n_a // 2)
-    odd = (n_a - k) != k 
-    qc = QuantumCircuit(4*(n_a + n_b - k) + 3 + 2 *(k**2) + n_a*n_b - n_a*k - n_b*k)
-    a = qc.qubits[:n_a]
-    b = qc.qubits[n_a: n_a + n_b]
-    sum_a = qc.qubits[n_a + n_b: 2*n_a + n_b - k + 1]
-    sum_b = qc.qubits[2*n_a + n_b - k + 1: 2*n_a + 2*n_b - 2*k + 2]
-    p0 = qc.qubits[2*n_a + 2*n_b - 2*k + 2: 2*n_a + 2*n_b - 2*k + 2 + k**2]
-    p2 = qc.qubits[2*n_a + 2*n_b - 2*k + 2 + k**2: 2*n_a + 2*n_b - 2*k + 2 + 2 *(k**2) + n_a*n_b - n_a*k - n_b*k]
-    M = qc.qubits[2*n_a + 2*n_b - 2*k + 2 + 2 *(k**2) + n_a*n_b - n_a*k - n_b*k:3*n_a + 3*n_b - 4*k + 3 + 2 *(k**2) + n_a*n_b - n_a*k - n_b*k]
-    R = qc.qubits[3*n_a + 3*n_b - 4*k + 3 + 2 *(k**2) + n_a*n_b - n_a*k - n_b*k: 4*n_a + 4*n_b - 4*k + 3 + 2 *(k**2) + n_a*n_b - n_a*k - n_b*k]
-    anc = qc.qubits[-1]
-    
-    a1 = a[:k]
-    a0 = a[k:n_a]
-    b1 = b[:k]
-    b0 = b[k:n_b]
-    if odd:
-        for i in range(len(a0)):
-            qc.cx(a0[i],sum_a[i])
-        for i in range(len(b0)):
-            qc.cx(b0[i],sum_b[i])
-        qc.append(IP_adder(k,len(a0)),[*a1,*sum_a,*anc])
-        qc.append(IP_adder(k,len(b0)),[*b1,*sum_b,*anc])
-    else:
-        qc.append(OOP_adder(k),[*a1,*a0,*sum_a])
-        qc.append(OOP_adder(k),[*b1,*b0,*sum_b])
-    qc.append(karatsuba(len(a0),len(b0),[*a0,*b0,*p0]))
-    qc.append(karatsuba(len(a1),len(b1),[*a1,*b1,*p2]))
-    qc.append(karatsuba(len(sum_a), len(sum_b)), [*sum_a,*sum_b,*M])
-    R0 = R[:len(p0)]
-    R1 = R[k : k + len(M)]
-    R2 = R[2*k : 2*k + len(p2)]
-    
-    for i in range(len(p0)):
-        qc.cx(p0[i], R0[i])
-        
-    for i in range(len(p2)):
-        qc.cx(p2[i], R2[i])
-        
-    qc.append(IP_adder(len(p0), len(M)).inverse(), [*p0, *M, anc])
-    qc.append(IP_adder(len(p2), len(M)).inverse(), [*p2, *M, anc])
-    
-    qc.append(IP_adder(len(M), len(R1)), [*M, *R1, anc])
-    
-    qc.append(IP_adder(len(p2), len(M)), [*p2, *M, anc])
-    qc.append(IP_adder(len(p0), len(M)), [*p0, *M, anc])
-    
-    qc.append(karatsuba(len(sum_a), len(sum_b)).inverse(), [*sum_a, *sum_b, *M])
-    qc.append(karatsuba(len(a1), len(b1)).inverse(), [*a1, *b1, *p2])
-    qc.append(karatsuba(len(a0), len(b0)).inverse(), [*a0, *b0, *p0])
-    
-    if odd:
-        qc.append(IP_adder(k, len(b0)).inverse(), [*b1, *sum_b, anc])
-        qc.append(IP_adder(k, len(a0)).inverse(), [*a1, *sum_a, anc])
-        for i in reversed(range(len(b0))):
-            qc.cx(b0[i], sum_b[i])
-        for i in reversed(range(len(a0))):
-            qc.cx(a0[i], sum_a[i])
-    else:
-        qc.append(OOP_adder(k).inverse(), [*b1, *b0, *sum_b])
-        qc.append(OOP_adder(k).inverse(), [*a1, *a0, *sum_a])
-    return qc.to_gate()
-    
+from typing import List
     
     
 def RPM(n_a: int, n_b: int):
@@ -93,7 +23,51 @@ def RPM(n_a: int, n_b: int):
         
     return qc.to_gate()
 
-def ToomCook25(qc, a, b, res, scratch, dcheck, cutoff = 11, d = 0):
+
+def inline_karatsuba(qc: QuantumCircuit, 
+                    input1: List[QuantumRegister], 
+                    input2: List[QuantumRegister], 
+                    output: List[QuantumRegister], 
+                    anc: QuantumRegister,
+                    sign: int = 1):
+
+    n1 = len(input1)
+    if n1 == 1:
+        flat_in1 = [q for reg in input1 for q in reg]
+        flat_in2 = [q for reg in input2 for q in reg]
+        flat_out = [q for reg in output for q in reg]
+        
+        if sign == 1:
+            qc.append(RPM(len(input1[0]), len(input2[0])), flat_in1 + flat_in2 + flat_out)
+        else:
+            qc.append(RPM(len(input1[0]), len(input2[0])).inverse(), flat_in1 + flat_in2 + flat_out)
+        return
+
+    h = n1 // 2
+    
+    a = input1[:h]
+    b = input1[h:]
+    x = input2[:h]
+    y = input2[h:]
+
+    for i in range(h, len(output)):
+        qc.append(IP_adder(len(output[i - h]), len(output[i])), [*output[i - h], *output[i], *anc])
+
+    inline_karatsuba(qc, a, x, output[:2*h], anc, sign)
+    inline_karatsuba(qc, b, y, output[h:3*h], anc, -sign)
+    for i in reversed(range(h, len(output))):
+        qc.append(IP_adder(len(output[i - h]), len(output[i])).inverse(), [*output[i - h], *output[i], *anc])
+    for i in range(h):
+        qc.append(IP_adder(len(b[i]), len(a[i])), [*b[i], *a[i], *anc])
+        qc.append(IP_adder(len(y[i]), len(x[i])), [*y[i], *x[i], *anc])
+
+    inline_karatsuba(qc, a, x, output[h:3*h], anc, sign)
+
+    for i in range(h):
+        qc.append(IP_adder(len(b[i]), len(a[i])).inverse(), [*b[i], *a[i], *anc])
+        qc.append(IP_adder(len(y[i]), len(x[i])).inverse(), [*y[i], *x[i], *anc])
+    
+def ToomCook25(qc: QuantumCircuit, a, b, res, scratch, dcheck: int, cutoff = 11, d = 0):
     n_a = len(a)
     n_b = len(b)
     n_res = len(res)
@@ -200,17 +174,21 @@ def ToomCook25(qc, a, b, res, scratch, dcheck, cutoff = 11, d = 0):
             qc.append(s_gate.inverse(), s_sub_qubits)
             qc.append(evaluations(n_a, n_b).inverse(), [*b0, *b1, *b2, *a0, *a1, *temp_xq, *temp_yq, *temp_xr, *temp_yr, anc])
 
-def ToomCook8Way():
-    #WIP
-def ToomCookMultiply(n_a, n_b, cutoff):
+def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int):
     nplog = np.frompyfunc(log, 2, 1)
-    N = nplog(max(n_a,n_b) / cutoff,6)
+    N = nplog(max(n_a, n_b) / cutoff, 6)
     k = np.floor(0.738 * N)
-    dcheck = N - k
-    qc = QuantumCircuit()
-    qc.append(ToomCookMultiply(n_a, n_b, n_a + n_b, dcheck, cutoff)[])
-    
-    
+    dcheck = int(N - k)
+    a = QuantumRegister(n_a)
+    b = QuantumRegister(n_b)
+    res = QuantumRegister(n_res)
+    scratch = QuantumRegister(n_scratch)
+    qc = QuantumCircuit(a, b, res, scratch)
+    ToomCook25(qc, a[:], b[:], res[:], scratch[:], dcheck, cutoff, 0)
+    return qc.to_gate()
+
+def ToomCook8Way():
+    #WIP    
     
 
 
