@@ -213,3 +213,72 @@ def QMA(n: int, N: int):
         qc.append(DraperQFTAdder(n).control(1), [*y[i],*x,*acc])
         qc.append(shift_and_reduce(N, n), [*x, anc])
     return qc.to_gate()
+
+"""
+def booth(a, b, n_a, n_b):
+    #only viable for even bits
+    qc = QuantumCircuit(2* n_a + 2* n_b + 5)
+    
+    a = qc.qubits[:n_a]
+    b = qc.qubits[n_a: n_a + n_b]
+    R = qc.qubits[n_a + n_b: 2*n_a + 2*n_b]
+    flags = qc.qubits[2*n_a + 2* n_b: 2* n_a + 2* n_b + 4]
+    anc = qc.qubits[-1]
+    
+    if n_a <= n_b:
+        mult, add = a, b
+    else:
+        mult, add = b, a
+        
+    for j in range(1, len(mult), 2):
+        
+        if j == 1:
+            qc.append(booth_multiplexer_simple(), [mult[j], mult[j-1], *flags])
+        else: 
+            qc.append(booth_multiplexer(), [mult[j], mult[j-1], mult[j-2], *flags, anc])
+        t0 = R[j-1 :]
+        qc.append(IP_adder(len(add), len(t0)).to_gate().control(1), [flags[0], anc, *add, *t0])
+        t1 = R[j :]
+        qc.append(IP_adder(len(add), len(t1)).to_gate().control(1), [flags[1], anc, *add, *t1])
+        qc.append(IP_adder(len(add), len(t0)).to_gate().inverse().control(1), [flags[2], anc, *add, *t0])
+        qc.append(IP_adder(len(add), len(t1)).to_gate().inverse().control(1), [flags[3], anc, *add, *t1])
+        if j == 1:
+            qc.append(booth_multiplexer_simple().inverse(), [mult[j], mult[j-1], *flags])
+        else: 
+            qc.append(booth_multiplexer().inverse(), [mult[j], mult[j-1], mult[j-2], *flags, anc])
+    #fix missing msb
+"""
+
+"""
+def booth_multiplexer():
+    qc = QuantumCircuit()
+    z,y,x = qc.qubits[0],qc.qubits[1], qc.qubits[2]
+    flag = qc.qubits[3:7]
+    T = qc.qubits[7]
+    qc.cx(y,T)
+    qc.cx(z,T)
+    qc.cx(T,flag[1])
+    qc.ccx(x,T,flag[1])
+    qc.ccx(x,T,flag[2])
+    qc.x(x)
+    qc.mcx([x,y,z],flag[0])
+    qc.x(x)
+    qc.x(y)
+    qc.x(z)
+    qc.mcx([x,y,z],flag[3])
+    qc.x(y)
+    qc.x(z)
+    return qc.to_gate()
+
+def booth_multiplexer_simple():
+    qc = QuantumCircuit()
+    y,x = qc.qubits[0],qc.qubits[1]
+    flag = qc.qubits[2:6]
+    qc.cx(y, flag[1])
+    qc.ccx(x,y,flag[1])
+    qc.ccx(x,y,flag[2])
+    qc.x(y)
+    qc.ccx(x,y,flag[3])
+    qc.x(y)
+    return qc.to_gate()
+"""

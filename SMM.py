@@ -1,8 +1,8 @@
 import numpy as np
 from math import inf
 from qiskit import QuantumCircuit
-from qiskit.circuit import Gate
 from qiskit.circuit.library import QFT
+from .gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv,correction_g
 
 def QQM(n: int) -> QuantumCircuit:
     qc = QuantumCircuit(4 * n)

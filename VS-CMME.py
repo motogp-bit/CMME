@@ -1,4 +1,6 @@
 from qiskit import QuantumCircuit
+from .SMM import QQM
+
 
 def CMMC(n, constant):
     qc = QuantumCircuit(n+1)

@@ -1,9 +1,11 @@
 from collections import defaultdict
 from qiskit import QuantumCircuit
+from math import log
 import numpy as np
-
+from .gates import IP_adder,OOP_adder,evaluations
 
 def karatsuba(a: int, b: int, n_a: int, n_b: int, optimal_splits: int): 
+    #implement craig gidney optimization
     if n_a == 1 and n_b == 1:
         qc = QuantumCircuit(3)
         qc.ccx(0, 1, 2)
@@ -91,44 +93,68 @@ def RPM(n_a: int, n_b: int):
         
     return qc.to_gate()
 
-def ToomCookMN(n_a,n_b):
-    ratio = n_b - n_a
-    #CONTINUE
+def ToomCook25(n_a, n_b, n_res, dcheck, cutoff = 11, d = 0):
     
-"""
-def booth(a, b, n_a, n_b):
-    #only viable for even bits
-    qc = QuantumCircuit(2* n_a + 2* n_b + 5)
-    
+    qc = QuantumCircuit()
     a = qc.qubits[:n_a]
-    b = qc.qubits[n_a: n_a + n_b]
-    R = qc.qubits[n_a + n_b: 2*n_a + 2*n_b]
-    flags = qc.qubits[2*n_a + 2* n_b: 2* n_a + 2* n_b + 4]
-    anc = qc.qubits[-1]
+    b = qc.qubits[n_a:n_a + n_b]
+    res = qc.qubits[n_a + n_b: n_a + n_b + n_res]
+    if n_a < cutoff or n_b < cutoff:
+        #qc.append(RPM(n_a,n_b),[*a,*b,*R])
+    elif n_a > n_b:
+        qc.append(ToomCook25(n_b, n_a, n_res, dcheck, cutoff, d), [*b, *a, *res])
+    elif n_b > 1.5 * n_a:
+        i = n_b // 3
+        rest = qc.qubits[n_a + n_b + n_res: n_a + n_b + n_res + 12*i + 12]
+        b0 = b[:i]
+        b1 = b[i:2*i]
+        b2 = b[2*i:]
+        j = n_a // 2
+        a0 = a[:j]
+        a1 = a[j:2*j]
+        temp_xq = rest[:i + 1]
+        temp_yq = rest[i+1: 2*i + 3]
+        temp_xr = rest[2*i + 3: 3*i + 4]
+        temp_yr = rest[3*i + 4: 4*i + 6]
+        rest = rest[4*i + 6:]
+        anc = qc.qubits[-1]
+        qc.append(evaluations(n_a, n_b),[*b0, *b1, *b2, *a0, *a1, *temp_xq, *temp_yq, *temp_xr, *temp_yr, anc])
+        if d < dcheck:
+            P = rest[:2*i]
+            Q = rest[2*i: 4*i + 3]
+            R = rest[4*i + 3: 6*i + 6]
+            S = rest[6*i + 6: 8*i + 6]
+            qc.append(ToomCook25(i, j), [*a0, *b0, *P])
+            qc.append(ToomCook25(i+1, i+2),[*temp_xq, *temp_yq, *Q])
+            qc.append(ToomCook25(i+1, i + 2),[*temp_xr, *temp_yr, *R])
+            qc.append(ToomCook25(len(a1),len(b2)),[*a1,*b2,*S])
+            qc.append(evaluations(n_a, n_b).inverse(), [*b0, *b1, *b2, *a0, *a1, *temp_xq, *temp_yq, *temp_xr, *temp_yr, anc])
+            qc.append(IP_adder(2*i, n_res),[*P, *res[0:], anc])
+            qc.append(IP_adder(2*i, n_res - 2*i).inverse(),[*P, *res[2*i:], anc])
+            qc.append(IP_adder(2*i, n_res - 3*i),[*S, *res[3*i:], anc])
+            qc.append(IP_adder(2*i, n_res - i).inverse(),[*S, *res[i:], anc])
+            qc.append(IP_adder(2*i + 2, n_res - i),[*Q[1:], *res[i:], anc])
+            qc.append(IP_adder(2*i + 2, n_res - 2*i),[*Q[1:], *res[2*i:], anc])
+            qc.append(IP_adder(2*i + 2, n_res - i).inverse(),[*R[1:], *res[i:], anc])
+            qc.append(IP_adder(2*i + 2, n_res - 2*i),[*R[1:], *res[2*i:], anc])
+        elif d == dcheck:
     
-    if n_a <= n_b:
-        mult, add = a, b
-    else:
-        mult, add = b, a
         
-    for j in range(1, len(mult), 2):
-        
-        if j == 1:
-            qc.append(booth_multiplexer_simple(), [mult[j], mult[j-1], *flags])
-        else: 
-            qc.append(booth_multiplexer(), [mult[j], mult[j-1], mult[j-2], *flags, anc])
-        t0 = R[j-1 :]
-        qc.append(IP_adder(len(add), len(t0)).to_gate().control(1), [flags[0], anc, *add, *t0])
-        t1 = R[j :]
-        qc.append(IP_adder(len(add), len(t1)).to_gate().control(1), [flags[1], anc, *add, *t1])
-        qc.append(IP_adder(len(add), len(t0)).to_gate().inverse().control(1), [flags[2], anc, *add, *t0])
-        qc.append(IP_adder(len(add), len(t1)).to_gate().inverse().control(1), [flags[3], anc, *add, *t1])
-        if j == 1:
-            qc.append(booth_multiplexer_simple().inverse(), [mult[j], mult[j-1], *flags])
-        else: 
-            qc.append(booth_multiplexer().inverse(), [mult[j], mult[j-1], mult[j-2], *flags, anc])
-    #fix missing msb
-"""
+    return qc.to_gate()
+
+def ToomCook8Way():
+    #WIP
+def ToomCookMultiply(n_a, n_b, cutoff):
+    nplog = np.frompyfunc(log, 2, 1)
+    N = nplog(max(n_a,n_b) / cutoff,6)
+    k = np.floor(0.738 * N)
+    dcheck = N - k
+    qc = QuantumCircuit()
+    qc.append(ToomCookMultiply(n_a, n_b, dcheck, cutoff)[])
+    
+    
+    
+
 
     
     
