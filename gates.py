@@ -125,7 +125,7 @@ def UMA():
     return qc.to_gate()
 
 def cuccaro_1(m: int):
-    qc = QuantumCircuit(2*m + 1)
+    qc = QuantumCircuit(2*m - 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -135,7 +135,7 @@ def cuccaro_1(m: int):
     return qc.to_gate()
 
 def cuccaro_2(m: int):
-    qc = QuantumCircuit(2*m + 1)
+    qc = QuantumCircuit(2*m - 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -224,3 +224,15 @@ def interpol_phases(phi, points, m):
         coeff_sum = sum(M_inv[d, l] * (2 ** (m * d)) for d in range(q))
         phases.append(phi * coeff_sum)
     return phases
+
+def q_add(qc, x_reg, y_reg, ancilla):
+    m = len(x_reg)
+    qc.append(cuccaro_1(m), [*x_reg, *y_reg, ancilla])
+    qc.append(cuccaro_2(m), [*x_reg, *y_reg, ancilla])
+    return qc.to_gate()
+
+def q_sub(qc, x_reg, y_reg, ancilla):
+    m = len(x_reg)
+    qc.append(cuccaro_2(m).inverse(), [*x_reg, *y_reg, ancilla])
+    qc.append(cuccaro_1(m).inverse(), [*x_reg, *y_reg, ancilla])
+    return qc.to_gate()
