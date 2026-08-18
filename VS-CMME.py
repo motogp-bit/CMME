@@ -1,6 +1,6 @@
 from qiskit import QuantumCircuit
 from .SMM import QQM
-
+from .gates import gen_splits,
 
 def CMMC(n, constant):
     qc = QuantumCircuit(n+1)
@@ -82,4 +82,3 @@ def main(sizes,total_size, n, N):
     #accumulator
     invert_tree(qc,tree,markers,n,N)
     
-#OUT OF PLACE MULTIPLICATION LOGIC

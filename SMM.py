@@ -1,8 +1,8 @@
 import numpy as np
 from math import inf
 from qiskit import QuantumCircuit,QuantumRegister
-from qiskit.circuit.library import QFT,DraperQFTAdder
-from .gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv,correction_g,q_add,q_sub, interpol_phases
+from qiskit.circuit.library import QFT
+from .gates import cuccaro_1,cuccaro_2,cuccaro_inv,correction_g,q_add,q_sub, interpol_phases
 
 def QQM(n: int, N: int) -> QuantumCircuit:
     x = QuantumRegister(n)
@@ -208,7 +208,7 @@ def PTPC(qc, m: int, phi: float, anc, xc, yc, zc, cutoff: int = 4):
     rz1 = zc[1]
 
     dcx_in, dcy_in, dcz_in = rx0[m-1], ry0[m-1], rz0[m-1]
-    dcx_out, dcy_out, dcz_out = rx1[m-1], ry1[m-1], rz1[m-1] # FIXED: Added dcz_out
+    dcx_out, dcy_out, dcz_out = rx1[m-1], ry1[m-1], rz1[m-1] 
     qc.append(correction_g(m, phi), [*rx0, *rx1, *ry0, *ry1, *rz0, *rz1])
     
 
