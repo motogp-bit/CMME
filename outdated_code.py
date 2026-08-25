@@ -351,4 +351,81 @@ def karatsuba(a: int, b: int, n_a: int, n_b: int, optimal_splits: int):
         qc.append(OOP_adder(k).inverse(), [*b1, *b0, *sum_b])
         qc.append(OOP_adder(k).inverse(), [*a1, *a0, *sum_a])
     return qc.to_gate()
+
+def gen_splits(max_bits: int, cutoff=11):
+    dp = {}
+    best_split = {}
     
+    for n in range(1, cutoff + 1):
+        dp[n] = 4 * (n ** 2) - 3 * n
+        
+    for n in range(cutoff + 1, max_bits + 1):
+        min_cost = float('inf')
+        optimal_k = n // 2 
+        
+        for k in range(1, n):
+            size_x0 = k
+            size_x1 = n - k
+            size_mid = max(size_x0, size_x1) 
+            cost_mults = dp[size_x1] + dp[size_x0] + dp[size_mid]
+            cost_adders = 4 * (2 * n) + 4 * (2 * size_mid)
+            total_cost = cost_mults + cost_adders
+            
+            if total_cost < min_cost:
+                min_cost = total_cost
+                optimal_k = k
+        
+        naive_cost = 4 * (n ** 2) - 3 * n
+        if naive_cost < min_cost:
+            dp[n] = naive_cost
+            best_split[n] = None
+        else:
+            dp[n] = min_cost
+            best_split[n] = optimal_k
+            
+    return best_split, dp
+
+optimal_splits, min_gate_costs = gen_splits(32, cutoff=11)
+
+def inline_karatsuba(qc: QuantumCircuit, 
+                    input1: List[QuantumRegister], 
+                    input2: List[QuantumRegister], 
+                    output: List[QuantumRegister], 
+                    anc: QuantumRegister,
+                    sign: int = 1):
+
+    n1 = len(input1)
+    if n1 == 1:
+        flat_in1 = [q for reg in input1 for q in reg]
+        flat_in2 = [q for reg in input2 for q in reg]
+        flat_out = [q for reg in output for q in reg]
+        
+        if sign == 1:
+            qc.append(RPM(len(input1[0]), len(input2[0])), flat_in1 + flat_in2 + flat_out)
+        else:
+            qc.append(RPM(len(input1[0]), len(input2[0])).inverse(), flat_in1 + flat_in2 + flat_out)
+        return
+
+    h = n1 // 2
+    
+    a = input1[:h]
+    b = input1[h:]
+    x = input2[:h]
+    y = input2[h:]
+
+    for i in range(h, len(output)):
+        qc.append(IP_adder(len(output[i - h]), len(output[i])), [*output[i - h], *output[i], *anc])
+
+    inline_karatsuba(qc, a, x, output[:2*h], anc, sign)
+    inline_karatsuba(qc, b, y, output[h:3*h], anc, -sign)
+    for i in reversed(range(h, len(output))):
+        qc.append(IP_adder(len(output[i - h]), len(output[i])).inverse(), [*output[i - h], *output[i], *anc])
+    for i in range(h):
+        qc.append(IP_adder(len(b[i]), len(a[i])), [*b[i], *a[i], *anc])
+        qc.append(IP_adder(len(y[i]), len(x[i])), [*y[i], *x[i], *anc])
+
+    inline_karatsuba(qc, a, x, output[h:3*h], anc, sign)
+
+    for i in range(h):
+        qc.append(IP_adder(len(b[i]), len(a[i])).inverse(), [*b[i], *a[i], *anc])
+        qc.append(IP_adder(len(y[i]), len(x[i])).inverse(), [*y[i], *x[i], *anc])

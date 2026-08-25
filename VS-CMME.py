@@ -1,6 +1,6 @@
 from qiskit import QuantumCircuit
 from .SMM import QQM
-from .gates import gen_splits,
+from .AM import ToomCookMultiply
 
 def CMMC(n, constant):
     qc = QuantumCircuit(n+1)
@@ -12,7 +12,7 @@ def CMMC(n, constant):
             qc.cx(ctrl, reg[j])
     return qc.to_gate()
 
-def build_tree(qc, regs, n,  N, index, optimal_splits):
+def build_tree(qc, regs, n,  N, index):
     layers = [regs]
     current_level = regs
     markers = []
@@ -28,11 +28,9 @@ def build_tree(qc, regs, n,  N, index, optimal_splits):
             newreg = qc.qubits[index: index + out_size]
             
             if out_size >= n:
-                pass
-                qc.append(QQM(n), [*ln, *rn, *newreg])
+                qc.append(QQM(n, N).inverse())
             else:
-                pass
-                #multiplication
+                qc.append(ToomCookMultiply(len(rn), len(rn), len(out_size), len(ancilla), 11))
                 
             next_level.append(newreg)
             index = index + out_size
@@ -62,12 +60,12 @@ def invert_tree(qc, layers, markers, n, N):
             out_size = len(ln) + len(rn)
             
             if out_size >= n:
-                qc.append(QQM(n).inverse(), [*ln, *rn, *newreg])
+                qc.append(QQM(n, N).inverse())
             else:
-            #something    
+                qc.append(ToomCookMultiply(len(rn), len(rn), len(out_size), len(ancilla), 11))
             
 def main(sizes,total_size, n, N):
-    optimal_splits, min_gate_costs = gen_splits(max_bits=32)
+    #optimal_splits, min_gate_costs = gen_splits(max_bits=32)
     qc = QuantumCircuit(total_size * n)
     constants = []
     mark = 0
@@ -78,7 +76,7 @@ def main(sizes,total_size, n, N):
     c = qc.qubits[mark: mark + 1]
     for i in range(len(regs)):
         qc.append(CMMC(sizes[i],constants[i]), [*c, regs[i]])
-    tree, markers = build_tree(qc, regs, n, N, index, optimal_splits)
+    tree, markers = build_tree(qc, regs, n, N, index)
     #accumulator
     invert_tree(qc,tree,markers,n,N)
     
