@@ -1,7 +1,7 @@
 from qiskit import QuantumCircuit
 from .SMM import QQM
 from .AM import ToomCookMultiply
-
+import numpy as np 
 def CMMC(n, constant):
     qc = QuantumCircuit(n+1)
     ctrl = qc.qubits[0]
@@ -12,7 +12,7 @@ def CMMC(n, constant):
             qc.cx(ctrl, reg[j])
     return qc.to_gate()
 
-def build_tree(qc, regs, n,  N, index):
+def build_tree(qc, regs, n,  N, index, ancilla):
     layers = [regs]
     current_level = regs
     markers = []
@@ -42,7 +42,7 @@ def build_tree(qc, regs, n,  N, index):
         markers.append(tier_size)
     return layers, markers 
 
-def invert_tree(qc, layers, markers, n, N):
+def invert_tree(qc, layers, markers, n, N, ancilla):
     depth = len(markers)
     
     for d in range(depth - 1, -1, -1):
@@ -66,6 +66,7 @@ def invert_tree(qc, layers, markers, n, N):
             
 def main(sizes,total_size, n, N):
     #optimal_splits, min_gate_costs = gen_splits(max_bits=32)
+    nplog = np.frompyfunc(log, 2, 1)
     qc = QuantumCircuit(total_size * n)
     constants = []
     mark = 0
@@ -76,7 +77,8 @@ def main(sizes,total_size, n, N):
     c = qc.qubits[mark: mark + 1]
     for i in range(len(regs)):
         qc.append(CMMC(sizes[i],constants[i]), [*c, regs[i]])
-    tree, markers = build_tree(qc, regs, n, N, index)
+    #ancilla is ceil(nplog(max(n_a,n_b) / cutoff, 3))
+    tree, markers = build_tree(qc, regs, n, N, index, ancilla)
     #accumulator
     invert_tree(qc,tree,markers,n,N)
     

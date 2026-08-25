@@ -237,7 +237,4 @@ def PTPC(qc, m: int, phi: float, anc, xc, yc, zc, cutoff: int = 4):
     qc.append(cuccaro_inv(m-1), [*rz0[:m-1], *rz1[:m-1], dcz_in])
     qc.append(cuccaro_inv(m-1), [*ry0[:m-1], *ry1[:m-1], dcy_in])
     qc.append(cuccaro_inv(m-1), [*rx0[:m-1], *rx1[:m-1], dcx_in])
-    
     return 
-
-
