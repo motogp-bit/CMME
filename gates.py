@@ -125,7 +125,7 @@ def UMA():
     return qc.to_gate()
 
 def cuccaro_1(m: int):
-    qc = QuantumCircuit(2*m - 1)
+    qc = QuantumCircuit(2*m + 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -135,7 +135,7 @@ def cuccaro_1(m: int):
     return qc.to_gate()
 
 def cuccaro_2(m: int):
-    qc = QuantumCircuit(2*m - 1)
+    qc = QuantumCircuit(2*m + 1)
     x = qc.qubits[:m]
     y = qc.qubits[m:2*m]
     c = qc.qubits[-1]
@@ -146,7 +146,7 @@ def cuccaro_2(m: int):
     return qc.to_gate()
     
 def cuccaro_inv(m: int):
-    qc = QuantumCircuit(2 * m - 1)
+    qc = QuantumCircuit(2 * m + 1)
     qc.append(cuccaro_1(m), qc.qubits)
     qc.append(cuccaro_2(m), qc.qubits)
     return qc.inverse().to_gate(label="cuccaro_inv")

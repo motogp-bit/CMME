@@ -4,85 +4,96 @@ import numpy as np
 from .gates import IP_adder,OOP_adder,evaluations
 from typing import List
     
-    
+
 def RPM(n_a: int, n_b: int):
-    total_qubits = 2 * (n_a + n_b)
+    total_qubits = 2 * (n_a + n_b) + 1
     qc = QuantumCircuit(total_qubits)
     
     a = qc.qubits[:n_a]
     b = qc.qubits[n_a : n_a + n_b]
     R = qc.qubits[n_a + n_b : 2 * (n_a + n_b)]
-    
-    c_adder = OOP_adder(n_b, n_b + 1).to_gate().control(1)
+    anc = qc.qubits[-1]
     
     for i in range(n_a):
-        acc_slice = R[i : i + n_b + 1]
+        acc_slice = R[i : i + n_b]
+        c_adder = IP_adder(n_b, n_b).control(1)
+        qc.append(c_adder, [a[i]] + b[:] + acc_slice + [anc])
         
-        qc.append(c_adder, [a[i]] + b[:] + acc_slice)
-        
-    return qc.to_gate()
+    return qc.to_gate(label="RPM")
 
-    
-def ToomCook25(qc: QuantumCircuit, a, b, res, scratch, dcheck: int, cutoff = 11, d = 0):
+def ToomCook25(
+    qc: QuantumCircuit,
+    a: List,
+    b: List,
+    res: List,
+    scratch: List,
+    cutoff: int = 4,
+    inverse: bool = False
+):
     n_a = len(a)
     n_b = len(b)
-    n_res = len(res)
-    if n_a > n_b:
-        ToomCook25(qc, b, a, res, scratch, dcheck, cutoff, d)
-    elif n_a < cutoff or n_b < cutoff or n_b <= 1.5 * n_a:
-        qc.append(RPM(n_a,n_b), [*a,*b,*res[:n_a + n_b]])
+    
+    if n_a < cutoff or n_b < cutoff or n_a <= 1 or n_b <= 1:
+        base_gate = RPM(n_a, n_b)
+        if inverse:
+            base_gate = base_gate.inverse()
+        qc.append(base_gate, [*a, *b, *res, scratch[-1]])
+        return
+
+    i = n_b // 3
+    j = n_a // 2
+    a0, a1 = a[:j], a[j:]
+    b0, b1, b2 = b[:i], b[i:2*i], b[2*i:]
+    
+    len_sum_a = len(a1) + 1
+    len_sum_b = max(len(b0), len(b1), len(b2)) + 2
+    sum_a = scratch[:len_sum_a]
+    sum_b = scratch[len_sum_a : len_sum_a + len_sum_b]
+    prod_q = scratch[len_sum_a + len_sum_b : len_sum_a + len_sum_b + (len_sum_a + len_sum_b)]
+    sub_scratch = scratch[len_sum_a + len_sum_b + (len_sum_a + len_sum_b) :]
+    anc = scratch[-1]
+    if not inverse:
+        ToomCook25(qc, a0, b0, res[:len(a0)+len(b0)], sub_scratch, cutoff)
+        ToomCook25(qc, a1, b2, res[j+2*i : j+2*i + len(a1)+len(b2)], sub_scratch, cutoff)
+        for idx in range(len(a0)):
+            qc.cx(a0[idx], sum_a[idx])
+        qc.append(IP_adder(len(a1), len_sum_a), [*a1, *sum_a, anc])
+        
+        for idx in range(len(b0)):
+            qc.cx(b0[idx], sum_b[idx])
+        qc.append(IP_adder(len(b1), len_sum_b - 1), [*b1, *sum_b[:-1], anc])
+        qc.append(IP_adder(len(b2), len_sum_b), [*b2, *sum_b, anc])
+        ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, cutoff)
+        qc.append(IP_adder(len(prod_q), len(res) - i), [*prod_q, *res[i:], anc])
+        ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, cutoff, inverse=True)
+        qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *sum_b, anc])
+        qc.append(IP_adder(len(b1), len_sum_b - 1).inverse(), [*b1, *sum_b[:-1], anc])
+        for idx in range(len(b0)):
+            qc.cx(b0[idx], sum_b[idx])
+        qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *sum_a, anc])
+        for idx in range(len(a0)):
+            qc.cx(a0[idx], sum_a[idx])
+            
     else:
-        i = n_b // 3
-        j = n_a // 2        
-        b0, b1, b2 = b[:i], b[i:2*i], b[2*i:]
-        a0, a1 = a[:j], a[j:]
-        anc = scratch
-        sub_scratch = scratch[1:]
-        if d != dcheck:
-            qc.append(IP_adder(i, i), [*res[0:i], *res[2*i:3*i], anc])
-            qc.append(IP_adder(i, i), [*res[i:2*i], *res[3*i:4*i], anc])
-            qc.append(IP_adder(i, i), [*res[2*i:3*i], *res[4*i:5*i], anc])
-            ToomCook25(qc, a0, b0, res[0:2*i], sub_scratch, dcheck, cutoff, d + 1)
-            ToomCook25(qc, a1, b2, res[i:3*i], sub_scratch, dcheck, cutoff, d + 1, inverse=True)
-            qc.append(IP_adder(i, i).inverse(), [*res[2*i:3*i], *res[4*i:5*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[i:2*i], *res[3*i:4*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[0:i], *res[2*i:3*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[0:i], *res[i:2*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[i:2*i], *res[2*i:3*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[2*i:3*i], *res[3*i:4*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[3*i:4*i], *res[4*i:5*i], anc])
-            qc.append(IP_adder(j, j), [*a1, *a0, anc])
-            qc.append(IP_adder(i, i), [*b1, *b0, anc])
-            qc.append(IP_adder(i, i), [*b2, *b0, anc])
-            ToomCook25(qc, a0, b0, res[i-1:3*i+2], sub_scratch, dcheck, cutoff, d + 1)
-            qc.append(IP_adder(i, i).inverse(), [*b2, *b0, anc])
-            qc.append(IP_adder(i, i).inverse(), [*b1, *b0, anc])
-            qc.append(IP_adder(j, j).inverse(), [*a1, *a0, anc])
-            qc.append(IP_adder(i, i), [*res[3*i:4*i], *res[4*i:5*i], anc])
-            qc.append(IP_adder(i, i), [*res[2*i:3*i], *res[3*i:4*i], anc])
-            qc.append(IP_adder(i, i), [*res[i:2*i], *res[2*i:3*i], anc])
-            qc.append(IP_adder(i, i), [*res[0:i], *res[i:2*i], anc])
-            qc.append(IP_adder(i, i), [*res[0:i], *res[i:2*i], anc])
-            qc.append(IP_adder(i, i), [*res[i:2*i], *res[2*i:3*i], anc])
-            qc.append(IP_adder(i, i), [*res[2*i:3*i], *res[3*i:4*i], anc])
-            qc.append(IP_adder(i, i), [*res[3*i:4*i], *res[4*i:5*i], anc])
-            qc.append(IP_adder(j, j).inverse(), [*a1, *a0, anc])
-            qc.append(IP_adder(i, i).inverse(), [*b1, *b0, anc])
-            qc.append(IP_adder(i, i), [*b2, *b0, anc])
-            ToomCook25(qc, a0, b0, res[i-1:3*i+2], sub_scratch, dcheck, cutoff, d + 1, inverse=True)
-            qc.append(IP_adder(i, i).inverse(), [*b2, *b0, anc])
-            qc.append(IP_adder(i, i), [*b1, *b0, anc])
-            qc.append(IP_adder(j, j), [*a1, *a0, anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[3*i:4*i], *res[4*i:5*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[2*i:3*i], *res[3*i:4*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[i:2*i], *res[2*i:3*i], anc])
-            qc.append(IP_adder(i, i).inverse(), [*res[0:i], *res[i:2*i], anc])
-        elif d == dcheck:
-            p_sub_qubits = [*a0, *b0, *res[0:2*i], *sub_scratch]
-            p_sub_qc = QuantumCircuit(len(p_sub_qubits))
-            ToomCook25(p_sub_qc, p_sub_qc.qubits[:len(a0)], p_sub_qc.qubits[len(a0):len(a0)+len(b0)], p_sub_qc.qubits[len(a0)+len(b0):len(a0)+len(b0)+2*i], p_sub_qc.qubits[len(a0)+len(b0)+2*i:], dcheck, cutoff, d + 1)
-            p_gate = p_sub_qc.to_gate(label=f"Toom_P_d{d}")
-            qc.append(p_gate, [*a0, *b0, *res[0:2*i], *sub_scratch])
+        for idx in range(len(a0)):
+            qc.cx(a0[idx], sum_a[idx])
+        qc.append(IP_adder(len(a1), len_sum_a), [*a1, *sum_a, anc])
+        for idx in range(len(b0)):
+            qc.cx(b0[idx], sum_b[idx])
+        qc.append(IP_adder(len(b1), len_sum_b - 1), [*b1, *sum_b[:-1], anc])
+        qc.append(IP_adder(len(b2), len_sum_b), [*b2, *sum_b, anc])
+        ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, cutoff)
+        qc.append(IP_adder(len(prod_q), len(res) - i).inverse(), [*prod_q, *res[i:], anc])
+        ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, cutoff, inverse=True)
+        qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *sum_b, anc])
+        qc.append(IP_adder(len(b1), len_sum_b - 1).inverse(), [*b1, *sum_b[:-1], anc])
+        for idx in range(len(b0)):
+            qc.cx(b0[idx], sum_b[idx])
+        qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *sum_a, anc])
+        for idx in range(len(a0)):
+            qc.cx(a0[idx], sum_a[idx])
+        ToomCook25(qc, a1, b2, res[j+2*i : j+2*i + len(a1)+len(b2)], sub_scratch, cutoff, inverse=True)
+        ToomCook25(qc, a0, b0, res[:len(a0)+len(b0)], sub_scratch, cutoff, inverse=True)
 
 def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int):
     nplog = np.frompyfunc(log, 2, 1)
@@ -95,16 +106,54 @@ def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int
     scratch = QuantumRegister(n_scratch)
     qc = QuantumCircuit(a, b, res, scratch)
     ToomCook25(qc, a[:], b[:], res[:], scratch[:], dcheck, cutoff, 0)
+    #FIX
     return qc.to_gate()
 
+def inline_karatsuba(
+    qc: QuantumCircuit, 
+    u_pieces: List[List], 
+    v_pieces: List[List], 
+    t_pieces: List[List], 
+    anc: any, 
+    sign: int = 1
+):
+    m = len(u_pieces)
+    if m == 1:
+        w = len(u_pieces[0])
+        base_gate = RPM(w, w)
+        if sign == -1:
+            base_gate = base_gate.inverse()
+        qc.append(base_gate, u_pieces[0] + v_pieces[0] + t_pieces[0] + [anc])
+        return
 
+    h = m // 2
+    
+    for i in range(h, len(t_pieces)):
+        w_out = len(t_pieces[0])
+        adder = IP_adder(w_out - 1, w_out)
+        if sign == -1:
+            adder = adder.inverse()
+        qc.append(adder, t_pieces[i - h][:-1] + t_pieces[i] + [anc])
 
+    inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[:2*h], anc, sign)
+    inline_karatsuba(qc, u_pieces[h:], v_pieces[h:], t_pieces[h:3*h], anc, -sign)
+    for i in reversed(range(h, len(t_pieces))):
+        w_out = len(t_pieces[0])
+        adder = IP_adder(w_out - 1, w_out)
+        if sign == 1:
+            adder = adder.inverse()
+        qc.append(adder, t_pieces[i - h][:-1] + t_pieces[i] + [anc])
 
-    
-    
-    
-    
-    
-    
-    
+    w_in = len(u_pieces[0])
+    for i in range(h):
+        qc.append(cuccaro_1(w_in), u_pieces[i + h] + u_pieces[i] + [anc])
+        qc.append(cuccaro_2(w_in), u_pieces[i + h] + u_pieces[i] + [anc])
+        
+        qc.append(cuccaro_1(w_in), v_pieces[i + h] + v_pieces[i] + [anc])
+        qc.append(cuccaro_2(w_in), v_pieces[i + h] + v_pieces[i] + [anc])
 
+    inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[h:3*h], anc, sign)
+
+    for i in range(h):
+        qc.append(cuccaro_inv(w_in), u_pieces[i + h] + u_pieces[i] + [anc])
+        qc.append(cuccaro_inv(w_in), v_pieces[i + h] + v_pieces[i] + [anc])
