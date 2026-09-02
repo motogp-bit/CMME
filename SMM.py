@@ -15,7 +15,6 @@ def QQM(n: int, N: int) -> QuantumCircuit:
     qc.append(QFT(num_qubits=n, do_swaps=True).inverse().to_gate(), [*w])
 
     return qc.to_gate()
-
 def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
     if n <= cutoff:        
         for i in range(n):
@@ -51,12 +50,12 @@ def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
                 PTP(qc, phi_l, xc[2], yc[2], zc[2], anc, m, cutoff)
                 
             elif pt == 1:
-                qc.append(q_add(), [*xc[1], *xc[0], anc])
-                qc.append(q_add(), [*xc[1], *xc[2], anc])
-                qc.append(q_add(), [*yc[1], *yc[0], anc]) 
-                qc.append(q_add(), [*yc[1], *yc[2], anc])
-                qc.append(q_add(), [*zc[1], *zc[0], anc]) 
-                qc.append(q_add(), [*zc[1], *zc[2], anc])
+                qc.append(q_add(m, m, 1), [*xc[1], *xc[0], anc])
+                qc.append(q_add(m, m, 1), [*xc[1], *xc[2], anc])
+                qc.append(q_add(m, m, 1), [*yc[1], *yc[0], anc]) 
+                qc.append(q_add(m, m, 1), [*yc[1], *yc[2], anc])
+                qc.append(q_add(m, m, 1), [*zc[1], *zc[0], anc]) 
+                qc.append(q_add(m, m, 1), [*zc[1], *zc[2], anc])
                 sub_ptpc = QuantumCircuit(6 * m + 1) 
                 local_xc = [sub_ptpc.qubits[0 : m], sub_ptpc.qubits[m : 2*m]]
                 local_yc = [sub_ptpc.qubits[2*m : 3*m], sub_ptpc.qubits[3*m : 4*m]]
@@ -68,25 +67,25 @@ def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
                 *yc[0], *yc[1],
                 *zc[0], *zc[1], anc
             ])
-                qc.append(q_sub(), [*zc[1], *zc[2], anc])
-                qc.append(q_sub(), [*zc[1], *zc[0], anc]) 
-                qc.append(q_sub(), [*yc[1], *yc[2], anc])
-                qc.append(q_sub(), [*yc[1], *yc[0], anc]) 
-                qc.append(q_sub(), [*xc[1], *xc[2], anc])
-                qc.append(q_sub(), [*xc[1], *xc[0], anc])
+                qc.append(q_sub(m, m, 1), [*zc[1], *zc[2], anc])
+                qc.append(q_sub(m, m, 1), [*zc[1], *zc[0], anc]) 
+                qc.append(q_sub(m, m, 1), [*yc[1], *yc[2], anc])
+                qc.append(q_sub(m, m, 1), [*yc[1], *yc[0], anc]) 
+                qc.append(q_sub(m, m, 1), [*xc[1], *xc[2], anc])
+                qc.append(q_sub(m, m, 1), [*xc[1], *xc[0], anc])
             elif pt == -1:
-                qc.append(q_sub(), [*xc[1], *xc[1], anc])
-                qc.append(q_sub(), [*xc[1], *xc[1], anc])
-                qc.append(q_add(), [*xc[1], *xc[0], anc])
-                qc.append(q_add(), [*xc[1], *xc[2], anc])
-                qc.append(q_sub(), [*yc[1], *yc[1], anc])
-                qc.append(q_sub(), [*yc[1], *yc[1], anc])
-                qc.append(q_add(), [*yc[1], *yc[0], anc])
-                qc.append(q_add(), [*yc[1], *yc[2], anc])
-                qc.append(q_sub(), [*zc[1], *zc[1], anc])
-                qc.append(q_sub(), [*zc[1], *zc[1], anc])
-                qc.append(q_add(), [*zc[1], *zc[0], anc])
-                qc.append(q_add(), [*zc[1], *zc[2], anc])
+                qc.append(q_sub(m, m, 1), [*xc[1], *xc[1], anc])
+                qc.append(q_sub(m, m, 1), [*xc[1], *xc[1], anc])
+                qc.append(q_add(m, m, 1), [*xc[1], *xc[0], anc])
+                qc.append(q_add(m, m, 1), [*xc[1], *xc[2], anc])
+                qc.append(q_sub(m, m, 1), [*yc[1], *yc[1], anc])
+                qc.append(q_sub(m, m, 1), [*yc[1], *yc[1], anc])
+                qc.append(q_add(m, m, 1), [*yc[1], *yc[0], anc])
+                qc.append(q_add(m, m, 1), [*yc[1], *yc[2], anc])
+                qc.append(q_sub(m, m, 1), [*zc[1], *zc[1], anc])
+                qc.append(q_sub(m, m, 1), [*zc[1], *zc[1], anc])
+                qc.append(q_add(m, m, 1), [*zc[1], *zc[0], anc])
+                qc.append(q_add(m, m, 1), [*zc[1], *zc[2], anc])
                 sub_ptpc = QuantumCircuit(6 * m + 1)
                 local_xc = [sub_ptpc.qubits[0 : m], sub_ptpc.qubits[m : 2*m]]
                 local_yc = [sub_ptpc.qubits[2*m : 3*m], sub_ptpc.qubits[3*m : 4*m]]
@@ -99,27 +98,27 @@ def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
                     *zc[0], *zc[1],
                     anc
                 ])
-                qc.append(q_sub(), [*zc[1], *zc[2], anc])
-                qc.append(q_sub(), [*zc[1], *zc[0], anc])
-                qc.append(q_add(), [*zc[1], *zc[1], anc])
-                qc.append(q_add(), [*zc[1], *zc[1], anc])            
-                qc.append(q_sub(), [*yc[1], *yc[2], anc])
-                qc.append(q_sub(), [*yc[1], *yc[0], anc])
-                qc.append(q_add(), [*yc[1], *yc[1], anc])
-                qc.append(q_add(), [*yc[1], *yc[1], anc])
-                qc.append(q_sub(), [*xc[1], *xc[2], anc])
-                qc.append(q_sub(), [*xc[1], *xc[0], anc])
-                qc.append(q_add(), [*xc[1], *xc[1], anc])
-                qc.append(q_add(), [*xc[1], *xc[1], anc])
+                qc.append(q_sub(m, m, 1), [*zc[1], *zc[2], anc])
+                qc.append(q_sub(m, m, 1), [*zc[1], *zc[0], anc])
+                qc.append(q_add(m, m, 1), [*zc[1], *zc[1], anc])
+                qc.append(q_add(m, m, 1), [*zc[1], *zc[1], anc])            
+                qc.append(q_sub(m, m, 1), [*yc[1], *yc[2], anc])
+                qc.append(q_sub(m, m, 1), [*yc[1], *yc[0], anc])
+                qc.append(q_add(m, m, 1), [*yc[1], *yc[1], anc])
+                qc.append(q_add(m, m, 1), [*yc[1], *yc[1], anc])
+                qc.append(q_sub(m, m, 1), [*xc[1], *xc[2], anc])
+                qc.append(q_sub(m, m, 1), [*xc[1], *xc[0], anc])
+                qc.append(q_add(m, m, 1), [*xc[1], *xc[1], anc])
+                qc.append(q_add(m, m, 1), [*xc[1], *xc[1], anc])
             elif pt == -2:
-                qc.append(q_sub(), [*xc[1][1:], *xc[0][:m-1], anc])
-                qc.append(q_sub(), [*xc[1][2:], *xc[2][:m-2], anc])
+                qc.append(q_sub(m-1, m-1, 1), [*xc[1][1:], *xc[0][:m-1], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*xc[1][2:], *xc[2][:m-2], anc])
                 
-                qc.append(q_sub(), [*yc[1][1:], *yc[0][:m-1], anc])
-                qc.append(q_sub(), [*yc[1][2:], *yc[2][:m-2], anc])
+                qc.append(q_sub(m-1, m-1, 1), [*yc[1][1:], *yc[0][:m-1], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*yc[1][2:], *yc[2][:m-2], anc])
                 
-                qc.append(q_sub(), [*zc[1][1:], *zc[0][:m-1], anc])
-                qc.append(q_sub(), [*zc[1][2:], *zc[2][:m-2], anc])
+                qc.append(q_sub(m-1, m-1, 1), [*zc[1][1:], *zc[0][:m-1], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*zc[1][2:], *zc[2][:m-2], anc])
                 sub_ptpc = QuantumCircuit(6 * m + 1)
                 local_xc = [sub_ptpc.qubits[0 : m], sub_ptpc.qubits[m : 2*m]]
                 local_yc = [sub_ptpc.qubits[2*m : 3*m], sub_ptpc.qubits[3*m : 4*m]]
@@ -134,20 +133,20 @@ def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
                     *zc[0], *zc[1],
                     anc
                 ])
-                qc.append(q_add(), [*zc[1][2:], *zc[2][:m-2], anc])
-                qc.append(q_add(), [*zc[1][1:], *zc[0][:m-1], anc])
-                qc.append(q_add(), [*yc[1][2:], *yc[2][:m-2], anc])
-                qc.append(q_add(), [*yc[1][1:], *yc[0][:m-1], anc])
-                qc.append(q_add(), [*xc[1][2:], *xc[2][:m-2], anc])
-                qc.append(q_add(), [*xc[1][1:], *xc[0][:m-1], anc])
+                qc.append(q_add(m-2, m-2, 1), [*zc[1][2:], *zc[2][:m-2], anc])
+                qc.append(q_add(m-1, m-1, 1), [*zc[1][1:], *zc[0][:m-1], anc])
+                qc.append(q_add(m-2, m-2, 1), [*yc[1][2:], *yc[2][:m-2], anc])
+                qc.append(q_add(m-1, m-1, 1), [*yc[1][1:], *yc[0][:m-1], anc])
+                qc.append(q_add(m-2, m-2, 1), [*xc[1][2:], *xc[2][:m-2], anc])
+                qc.append(q_add(m-1, m-1, 1), [*xc[1][1:], *xc[0][:m-1], anc])
                 
             elif pt == 2:
-                qc.append(q_add(), [*xc[1][1:], *xc[0][:m-1], anc])
-                qc.append(q_add(), [*xc[1][2:], *xc[2][:m-2], anc])
-                qc.append(q_add(), [*yc[1][1:], *yc[0][:m-1], anc])
-                qc.append(q_add(), [*yc[1][2:], *yc[2][:m-2], anc])
-                qc.append(q_add(), [*zc[1][1:], *zc[0][:m-1], anc])
-                qc.append(q_add(), [*zc[1][2:], *zc[2][:m-2], anc])
+                qc.append(q_add(m-1, m-1, 1), [*xc[1][1:], *xc[0][:m-1], anc])
+                qc.append(q_add(m-2, m-2, 1), [*xc[1][2:], *xc[2][:m-2], anc])
+                qc.append(q_add(m-1, m-1, 1), [*yc[1][1:], *yc[0][:m-1], anc])
+                qc.append(q_add(m-2, m-2, 1), [*yc[1][2:], *yc[2][:m-2], anc])
+                qc.append(q_add(m-1, m-1, 1), [*zc[1][1:], *zc[0][:m-1], anc])
+                qc.append(q_add(m-2, m-2, 1), [*zc[1][2:], *zc[2][:m-2], anc])
                 sub_ptpc = QuantumCircuit(6 * m + 1)
                 local_xc = [sub_ptpc.qubits[0 : m], sub_ptpc.qubits[m : 2*m]]
                 local_yc = [sub_ptpc.qubits[2*m : 3*m], sub_ptpc.qubits[3*m : 4*m]]
@@ -161,19 +160,19 @@ def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
                     *zc[0], *zc[1],
                     anc
                 ])
-                qc.append(q_sub(), [*zc[1][2:], *zc[2][:m-2], anc])
-                qc.append(q_sub(), [*zc[1][1:], *zc[0][:m-1], anc])
-                qc.append(q_sub(), [*yc[1][2:], *yc[2][:m-2], anc])
-                qc.append(q_sub(), [*yc[1][1:], *yc[0][:m-1], anc])
-                qc.append(q_sub(), [*xc[1][2:], *xc[2][:m-2], anc])
-                qc.append(q_sub(), [*xc[1][1:], *xc[0][:m-1], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*zc[1][2:], *zc[2][:m-2], anc])
+                qc.append(q_sub(m-1, m-1, 1), [*zc[1][1:], *zc[0][:m-1], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*yc[1][2:], *yc[2][:m-2], anc])
+                qc.append(q_sub(m-1, m-1, 1), [*yc[1][1:], *yc[0][:m-1], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*xc[1][2:], *xc[2][:m-2], anc])
+                qc.append(q_sub(m-1, m-1, 1), [*xc[1][1:], *xc[0][:m-1], anc])
             elif pt == 0.5:
-                qc.append(q_sub(), [*xc[1][2:], *xc[0][:m-2], anc])
-                qc.append(q_sub(), [*xc[1], *xc[2], anc])
-                qc.append(q_sub(), [*yc[1][2:], *yc[0][:m-2], anc])
-                qc.append(q_sub(), [*yc[1], *yc[2], anc])
-                qc.append(q_sub(), [*zc[1][2:], *zc[0][:m-2], anc])
-                qc.append(q_sub(), [*zc[1], *zc[2], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*xc[1][2:], *xc[0][:m-2], anc])
+                qc.append(q_sub(m, m, 1), [*xc[1], *xc[2], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*yc[1][2:], *yc[0][:m-2], anc])
+                qc.append(q_sub(m, m, 1), [*yc[1], *yc[2], anc])
+                qc.append(q_sub(m-2, m-2, 1), [*zc[1][2:], *zc[0][:m-2], anc])
+                qc.append(q_sub(m, m, 1), [*zc[1], *zc[2], anc])
                 sub_ptpc = QuantumCircuit(6 * m + 1)
                 local_xc = [sub_ptpc.qubits[0 : m], sub_ptpc.qubits[m : 2*m]]
                 local_yc = [sub_ptpc.qubits[2*m : 3*m], sub_ptpc.qubits[3*m : 4*m]]
@@ -186,15 +185,13 @@ def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
                     *zc[0], *zc[1],
                     anc
                 ])
-                qc.append(q_add(), [*zc[1], *zc[2], anc])
-                qc.append(q_add(), [*zc[1][2:], *zc[0][:m-2], anc])
-                qc.append(q_add(), [*yc[1], *yc[2], anc])
-                qc.append(q_add(), [*yc[1][2:], *yc[0][:m-2], anc])
-                qc.append(q_add(), [*xc[1], *xc[2], anc])
-                qc.append(q_add(), [*xc[1][2:], *xc[0][:m-2], anc])
-
-
-    return 
+                qc.append(q_add(m, m, 1), [*zc[1], *zc[2], anc])
+                qc.append(q_add(m-2, m-2, 1), [*zc[1][2:], *zc[0][:m-2], anc])
+                qc.append(q_add(m, m, 1), [*yc[1], *yc[2], anc])
+                qc.append(q_add(m-2, m-2, 1), [*yc[1][2:], *yc[0][:m-2], anc])
+                qc.append(q_add(m, m, 1), [*xc[1], *xc[2], anc])
+                qc.append(q_add(m-2, m-2, 1), [*xc[1][2:], *xc[0][:m-2], anc])
+    return
 
 
 def PTPC(qc, m: int, phi: float, anc, xc, yc, zc, cutoff: int = 4):

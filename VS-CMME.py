@@ -82,7 +82,7 @@ def invert_tree(qc, layers, markers, n, N, ancilla):
                 qc.append(QQM(n, N).inverse(), [*ln, *rn, *newreg, ancilla[0]])
             else:
                 scratch_size = get_scratch_size(len(ln), len(rn), 11)
-                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, ancilla, 11).inverse() [*ln, *rn, *newreg, *ancilla[:scratch_size]])
+                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, ancilla, 11).inverse(), [*ln, *rn, *newreg, *ancilla[:scratch_size]])
                 #inline karatsuba test
             
 def main(sizes, N):
@@ -102,7 +102,10 @@ def main(sizes, N):
     c = qc.qubits[mark: mark + 1]
     for i in range(len(regs)):
         qc.append(CMMC(sizes[i],constants[i]), [*c, regs[i]])
+    index = mark + 1
+    num_ancillas = max(max_scratch_size, 1)
+    ancilla = qc.qubits[-num_ancillas:]
     tree, markers = build_tree(qc, regs, n, N, index, ancilla)
     #accumulator
-    invert_tree(qc,tree,markers,n,N)
+    invert_tree(qc, tree, markers, n ,N, ancilla)
     
