@@ -1,7 +1,7 @@
 from qiskit import QuantumCircuit,QuantumRegister
 from math import log
 import numpy as np
-from .gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv
+from gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv
 from typing import List
 
 

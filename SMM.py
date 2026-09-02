@@ -2,7 +2,7 @@ import numpy as np
 from math import inf
 from qiskit import QuantumCircuit,QuantumRegister
 from qiskit.circuit.library import QFT
-from .gates import cuccaro_1,cuccaro_2,cuccaro_inv,correction_g,q_add,q_sub, interpol_phases
+from gates import cuccaro_1,cuccaro_2,cuccaro_inv,correction_g,q_add,q_sub, interpol_phases
 
 def QQM(n: int, N: int) -> QuantumCircuit:
     x = QuantumRegister(n)

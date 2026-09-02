@@ -1,7 +1,7 @@
 from qiskit import QuantumCircuit
-from .SMM import QQM
-from .AM import ToomCookMultiply
-from .gates import get_scratch_size
+from SMM import QQM
+from AM import ToomCookMultiply
+from gates import get_scratch_size
 import numpy as np 
 
 def calculate_tree_max_scratch(sizes, cutoff=11) -> int:

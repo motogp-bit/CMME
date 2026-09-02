@@ -8,26 +8,12 @@ parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.append(current_dir)
 sys.path.append(parent_dir)
 
-try:
-    # 1. Try importing assuming test script is next to the 'motogp-bit-cmme' package folder
-    from .AM import ToomCookMultiply, inline_karatsuba, RPM
-    from .gates import get_scratch_size
-    print("Successfully imported multipliers from package 'motogp_bit_cmme'!")
-except ImportError:
-    try:
-        # 2. Try importing assuming test script is inside the 'motogp-bit-cmme' folder alongside AM.py
-        import AM,gates
-        print("Successfully imported multipliers from local directory flat files!")
-    except ImportError as e:
-        print("\n" + "="*80)
-        print("IMPORT ERROR: Could not locate your codebase files ('AM.py' or 'gates.py').")
-        print("To fix this, please ensure that:")
-        print("  1. You have split the uploaded .txt file into its respective python files:")
-        print("     AM.py, gates.py, SMM.py, and VS-CMME.py.")
-        print("  2. This test script is placed EITHER inside the same directory as those files,")
-        print("     OR right next to the 'motogp-bit-cmme' package directory.")
-        print("="*80 + "\n")
-        raise e
+import sys
+import os
+from typing import List
+
+from AM import ToomCookMultiply, inline_karatsuba, RPM
+from gates import get_scratch_size
 
 from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit_aer import AerSimulator
