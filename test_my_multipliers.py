@@ -144,12 +144,9 @@ def test_toom_cook(n_a: int, n_b: int, val_a: int, val_b: int):
 if __name__ == "__main__":
     # Test 1: Basic Russian Peasant Multiplier (RPM)
     test_russian_peasant()
-    
-    # Test 2: Standard 35-qubit Recursive Toom-Cook 2.5
     test_toom_cook(n_a=4, n_b=6, val_a=3, val_b=5)
-    
-    # Test 3: Large 180-qubit Recursive Toom-Cook 2.5 (Fully bypasses the 30-qubit limit using MPS!)
     test_toom_cook(n_a=8, n_b=12, val_a=181, val_b=2743)
+    test_inline_karatsuba()
 
 
 def test_inline_karatsuba():
@@ -183,19 +180,3 @@ def test_inline_karatsuba():
         print("Compilation Failed!")
         raise e
 
-
-if __name__ == "__main__":
-    print("="*80)
-    print("QUANTUM MULTIPLIERS TESTING SUITE FOR YOUR LOCAL CODEBASE")
-    print("="*80)
-    
-    try:
-        test_russian_peasant()
-        test_toom_cook()
-        test_inline_karatsuba()
-    except Exception as e:
-        print(f"\nTest execution stopped due to an error: {e}")
-    
-    print("\n" + "="*80)
-    print("Testing complete. Place this script alongside your AM.py and gates.py files to run.")
-    print("="*80)
