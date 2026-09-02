@@ -4,6 +4,29 @@ from .AM import ToomCookMultiply
 from .gates import get_scratch_size
 import numpy as np 
 
+def calculate_tree_max_scratch(sizes, cutoff=11) -> int:
+
+    current_level_sizes = list(sizes)
+    max_scratch = 1
+    
+    while len(current_level_sizes) > 1:
+        next_level_sizes = []
+        tier_size = len(current_level_sizes)
+        midpoint = tier_size // 2
+        for i in range(midpoint):
+            ln_size = current_level_sizes[i]
+            rn_size = current_level_sizes[tier_size - 1 - i]
+            out_size = ln_size + rn_size
+            if out_size < 12: 
+                node_scratch = get_scratch_size(ln_size, rn_size, cutoff)
+                if node_scratch > max_scratch:
+                    max_scratch = node_scratch
+            next_level_sizes.append(out_size)
+        if tier_size % 2 != 0:
+            next_level_sizes.append(current_level_sizes[midpoint])
+        current_level_sizes = next_level_sizes
+    return max_scratch
+
 def primes(d):
     sqprimes= []
     sqprimes.append(4)
@@ -17,8 +40,7 @@ def primes(d):
         if prime:
             sqprimes.append(pprime**2)
         pprime+=2 
-    return sqprimes
-            
+    return sqprimes        
             
 def CMMC(n, constant):
     qc = QuantumCircuit(n+1)
@@ -82,7 +104,7 @@ def invert_tree(qc, layers, markers, n, N, ancilla):
                 qc.append(QQM(n, N).inverse(), [*ln, *rn, *newreg, ancilla[0]])
             else:
                 scratch_size = get_scratch_size(len(ln), len(rn), 11)
-                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, ancilla, 11).inverse(), [*ln, *rn, *newreg, *ancilla[:scratch_size]])
+                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, scratch_size, 11).inverse(), [*ln, *rn, *newreg, *ancilla[:scratch_size]])
                 #inline karatsuba test
             
 def main(sizes, N):
@@ -103,7 +125,7 @@ def main(sizes, N):
     for i in range(len(regs)):
         qc.append(CMMC(sizes[i],constants[i]), [*c, regs[i]])
     index = mark + 1
-    num_ancillas = max(max_scratch_size, 1)
+    num_ancillas = max(calculate_tree_max_scratch(sizes, 11), 1)
     ancilla = qc.qubits[-num_ancillas:]
     tree, markers = build_tree(qc, regs, n, N, index, ancilla)
     #accumulator

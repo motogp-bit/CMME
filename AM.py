@@ -15,10 +15,9 @@ def RPM(n_a: int, n_b: int):
     anc = qc.qubits[-1]
     
     for i in range(n_a):
-        acc_slice = R[i : i + n_b]
-        c_adder = IP_adder(n_b, n_b).control(1)
+        acc_slice = R[i : i + n_b + 1]  
+        c_adder = IP_adder(n_b, n_b + 1).control(1)  
         qc.append(c_adder, [a[i]] + b[:] + acc_slice + [anc])
-        
     return qc.to_gate(label="RPM")
 
 def ToomCook25(
