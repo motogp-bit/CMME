@@ -2,6 +2,7 @@ from qiskit import QuantumCircuit
 from .SMM import QQM
 from .AM import ToomCookMultiply
 import numpy as np 
+
 def CMMC(n, constant):
     qc = QuantumCircuit(n+1)
     ctrl = qc.qubits[0]
@@ -66,7 +67,7 @@ def invert_tree(qc, layers, markers, n, N, ancilla):
             
 def main(sizes,total_size, n, N):
     #optimal_splits, min_gate_costs = gen_splits(max_bits=32)
-    nplog = np.frompyfunc(log, 2, 1)
+    nplog = np.frompyfunc(np.log, 2, 1)
     qc = QuantumCircuit(total_size * n)
     constants = []
     mark = 0
