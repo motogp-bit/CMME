@@ -191,19 +191,19 @@ def inline_karatsuba(
 
     h = m // 2
     for i in range(h, len(t_pieces)):
-        w_out = len(t_pieces[0])
-        adder = IP_adder(w_out - 1, w_out)
+        w_out = len(t_pieces)
+        adder = IP_adder(w_out, w_out)  
         if sign == -1:
             adder = adder.inverse()
-        qc.append(adder, t_pieces[i - h][:-1] + t_pieces[i] + [anc])
+        qc.append(adder, t_pieces[i - h] + t_pieces[i] + [anc])
     inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[:2*h], anc, sign)
     inline_karatsuba(qc, u_pieces[h:], v_pieces[h:], t_pieces[h:3*h], anc, -sign)
     for i in reversed(range(h, len(t_pieces))):
         w_out = len(t_pieces[0])
-        adder = IP_adder(w_out - 1, w_out)
+        adder = IP_adder(w_out, w_out)
         if sign == 1:
             adder = adder.inverse()
-        qc.append(adder, t_pieces[i - h][:-1] + t_pieces[i] + [anc])
+        qc.append(adder, t_pieces[i - h] + t_pieces[i] + [anc])
 
     w_in = len(u_pieces[0])
     for i in range(h):
