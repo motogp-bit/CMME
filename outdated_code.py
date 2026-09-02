@@ -647,3 +647,31 @@ def PTPC(qc, m: int, phi: float, anc, xc, yc, zc, cutoff: int = 4):
     qc.append(cuccaro_inv(m-1), [*ry0[:m-1], *ry1[:m-1], dcy_in])
     qc.append(cuccaro_inv(m-1), [*rx0[:m-1], *rx1[:m-1], dcx_in])
     return 
+
+def evaluations(n_a: int, n_b: int):
+        qc = QuantumCircuit(4*i + 7)
+        i = n_b // 3
+        b0 = qc.qubits[:i]
+        b1 = qc.qubits[i:2*i]
+        b2 = qc.qubits[2*i:]
+        j = n_a // 2 
+        temp = len(b2) + 2*i
+        a0 = qc.qubits[temp: temp +j]
+        a1 = qc.qubits[temp +j:temp + 2*j]
+        temp = temp + len(a1) + 2*j
+        temp_xq = qc.qubits[temp: temp + i + 1]
+        temp_yq = qc.qubits[temp + i+1: temp + 2*i + 3]
+        temp_xr = qc.qubits[temp + 2*i + 3: temp + 3*i + 4]
+        temp_yr = qc.qubits[temp + 3*i + 4: temp + 4*i + 6]
+        anc = qc.qubits[-1]
+        qc.append(copy(len(a0),len(temp_xq)), [*a0,*temp_xq])
+        qc.append(copy(len(b0), len(temp_yq)), [*b0,*temp_yq])
+        qc.append(copy(len(a0), len(temp_xr)), [*a0,*temp_xr])
+        qc.append(copy(len(b0), len(temp_yr)), [*b0,*temp_yr])
+        qc.append(IP_adder(len(a1), len(temp_xq)),[*a1, *temp_xq, anc])
+        qc.append(IP_adder(len(b1), len(temp_yq)),[*b1,*temp_yq, anc])
+        qc.append(IP_adder(len(b2), len(temp_yq))[*b2, *temp_yq,  anc])
+        qc.append(IP_adder(len(a1).inverse(), len(temp_xr))[*a1, *temp_xr,  anc])
+        qc.append(IP_adder(len(b1).inverse(), len(temp_yr))[*b2, *temp_yr,  anc])
+        qc.append(IP_adder(len(b2), len(temp_yr))[*b2, *temp_yr,  anc])
+        return qc.to_gate()

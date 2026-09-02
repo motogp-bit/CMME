@@ -39,7 +39,6 @@ def PTP(qc: QuantumCircuit, phi: float, x, y, z, anc,  n: int, cutoff: int = 4):
     
     points = [0, inf, 1, -1, 2, -2, -0.5]
     phases = interpol_phases(phi, points, m) 
-    
 
     for l in range(q):
             pt = points[l]

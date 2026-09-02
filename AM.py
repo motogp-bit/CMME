@@ -1,7 +1,7 @@
 from qiskit import QuantumCircuit,QuantumRegister
 from math import log
 import numpy as np
-from .gates import IP_adder,OOP_adder,evaluations
+from .gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv
 from typing import List
     
 
@@ -49,8 +49,8 @@ def ToomCook25(
     len_sum_b = max(len(b0), len(b1), len(b2)) + 2
     sum_a = scratch[:len_sum_a]
     sum_b = scratch[len_sum_a : len_sum_a + len_sum_b]
-    prod_q = scratch[len_sum_a + len_sum_b : len_sum_a + len_sum_b + (len_sum_a + len_sum_b)]
-    sub_scratch = scratch[len_sum_a + len_sum_b + (len_sum_a + len_sum_b) :]
+    prod_q = scratch[len_sum_a + len_sum_b : 2*len_sum_a + 2*len_sum_b]
+    sub_scratch = scratch[2*len_sum_a + 2*len_sum_b :]
     anc = scratch[-1]
     if not inverse:
         ToomCook25(qc, a0, b0, res[:len(a0)+len(b0)], sub_scratch, cutoff)
