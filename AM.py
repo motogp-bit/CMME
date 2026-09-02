@@ -4,20 +4,6 @@ import numpy as np
 from .gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv
 from typing import List
 
-def get_scratch_size(n_a: int, n_b: int, cutoff: int) -> int:
-    if n_a < cutoff or n_b < cutoff or n_a <= 1 or n_b <= 1:
-        return 1  
-    
-    i = n_b // 3
-    j = n_a // 2
-    
-    len_sum_a = (n_a - j) + 1
-    len_sum_b = max(i, n_b - (2 * i)) + 2
-    current_level_scratch = 2 * (len_sum_a + len_sum_b)
-    branch_a0_b0 = get_scratch_size(j, i, cutoff)
-    branch_a1_b2 = get_scratch_size(n_a - j, n_b - (2 * i), cutoff)
-    branch_sum = get_scratch_size(len_sum_a, len_sum_b, cutoff)
-    return current_level_scratch + max(branch_a0_b0, branch_a1_b2, branch_sum)   
 
 def RPM(n_a: int, n_b: int):
     total_qubits = 2 * (n_a + n_b) + 1
@@ -46,10 +32,6 @@ def ToomCook25(
     d: int = 0,
     inverse: bool = False
 ):
-    """
-    Complete Pebbled Toom-Cook 2.5 Multiplier with zero comments replacing executable code.
-    Correctly integrates Bennett's pebbling strategy using the dcheck threshold.
-    """
     n_a = len(a)
     n_b = len(b)
     
@@ -116,19 +98,17 @@ def ToomCook25(
         ToomCook25(qc, a0, b0, res[:len(a0)+len(b0)], sub_scratch, dcheck, cutoff, d + 1, True)
 
 
-def ToomCookMultiply(n_a: int, n_b: int, n_res: int, cutoff: int):
+def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int):
     nplog = np.frompyfunc(log, 2, 1)
     N = nplog(max(n_a, n_b) / cutoff, 6)
     k = np.floor(0.738 * N)
     dcheck = int(N - k)
-    n_scratch = get_scratch_size(n_a, n_b, cutoff)
     a = QuantumRegister(n_a)
     b = QuantumRegister(n_b)
     res = QuantumRegister(n_res)
     scratch = QuantumRegister(n_scratch)
     qc = QuantumCircuit(a, b, res, scratch)
     ToomCook25(qc, list(a), list(b), list(res), list(scratch), dcheck, cutoff, 0, False)
-    #FIX
     return qc.to_gate()
 
 def inline_karatsuba(

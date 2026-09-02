@@ -2,6 +2,21 @@ from qiskit.circuit.library import SXdgGate
 from qiskit import QuantumCircuit
 import numpy as np 
 
+def get_scratch_size(n_a: int, n_b: int, cutoff: int) -> int:
+    if n_a < cutoff or n_b < cutoff or n_a <= 1 or n_b <= 1:
+        return 1  
+    
+    i = n_b // 3
+    j = n_a // 2
+    
+    len_sum_a = (n_a - j) + 1
+    len_sum_b = max(i, n_b - (2 * i)) + 2
+    current_level_scratch = 2 * (len_sum_a + len_sum_b)
+    branch_a0_b0 = get_scratch_size(j, i, cutoff)
+    branch_a1_b2 = get_scratch_size(n_a - j, n_b - (2 * i), cutoff)
+    branch_sum = get_scratch_size(len_sum_a, len_sum_b, cutoff)
+    return current_level_scratch + max(branch_a0_b0, branch_a1_b2, branch_sum)  
+
 def copy(n: int, n1):
     qc = QuantumCircuit(n + n1)
     a = qc.qubits[:n]
