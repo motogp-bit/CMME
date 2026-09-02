@@ -50,8 +50,8 @@ def ToomCook25(
     len_sum_b = max(len(b0), len(b1), len(b2)) + 2
     sum_a = scratch[:len_sum_a]
     sum_b = scratch[len_sum_a : len_sum_a + len_sum_b]
-    prod_q = scratch[len_sum_a + len_sum_b : len_sum_a + len_sum_b + (len_sum_a + len_sum_b)]
-    sub_scratch = scratch[len_sum_a + len_sum_b + (len_sum_a + len_sum_b) :]
+    prod_q = scratch[len_sum_a + len_sum_b : 2*len_sum_a + len_sum_b + 1]
+    sub_scratch = scratch[len_sum_a + len_sum_b : 2*len_sum_a + len_sum_b + 1 :]
     anc = scratch[-1]
     
     if not inverse:
@@ -98,7 +98,7 @@ def ToomCook25(
         ToomCook25(qc, a0, b0, res[:len(a0)+len(b0)], sub_scratch, dcheck, cutoff, d + 1, True)
 
 
-def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int):
+def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int, inverse = False):
     nplog = np.frompyfunc(log, 2, 1)
     N = nplog(max(n_a, n_b) / cutoff, 6)
     k = np.floor(0.738 * N)
@@ -108,7 +108,7 @@ def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int
     res = QuantumRegister(n_res)
     scratch = QuantumRegister(n_scratch)
     qc = QuantumCircuit(a, b, res, scratch)
-    ToomCook25(qc, list(a), list(b), list(res), list(scratch), dcheck, cutoff, 0, False)
+    ToomCook25(qc, list(a), list(b), list(res), list(scratch), dcheck, cutoff, 0, inverse)
     return qc.to_gate()
 
 def inline_karatsuba(

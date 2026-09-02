@@ -8,9 +8,9 @@ def primes(d):
     sqprimes= []
     sqprimes.append(4)
     pprime = 3
-    while len(sqprimes < d):
+    while len(sqprimes) < d:
         prime = 1
-        for j in range(3,np.sqrt(pprime),2):
+        for j in range(3, int(np.sqrt(pprime)),2):
             if pprime % j == 0:
                 prime = 0
                 break
@@ -46,10 +46,10 @@ def build_tree(qc, regs, n,  N, index, ancilla):
             newreg = qc.qubits[index: index + out_size]
             
             if out_size >= n:
-                qc.append(QQM(n, N).inverse())
+                qc.append(QQM(n, N), [*ln, *rn, *newreg, ancilla[0]])
             else:
-                ancilla = get_scratch_size(ln, rn, 11)
-                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, len(ancilla), 11))
+                scratch_size = get_scratch_size(len(ln), len(rn), 11)
+                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, scratch_size, 11), [*ln, *rn, *newreg, *ancilla[:scratch_size]])
                 
             next_level.append(newreg)
             index = index + out_size
@@ -79,10 +79,11 @@ def invert_tree(qc, layers, markers, n, N, ancilla):
             out_size = len(ln) + len(rn)
             
             if out_size >= n:
-                qc.append(QQM(n, N).inverse())
+                qc.append(QQM(n, N).inverse(), [*ln, *rn, *newreg, ancilla[0]])
             else:
-                ancilla = get_scratch_size(ln, rn, 11)
-                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, len(ancilla), 11))
+                scratch_size = get_scratch_size(len(ln), len(rn), 11)
+                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, ancilla, 11).inverse() [*ln, *rn, *newreg, *ancilla[:scratch_size]])
+                #inline karatsuba test
             
 def main(sizes, N):
     n = int(np.log2(N))

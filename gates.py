@@ -211,14 +211,16 @@ def interpol_phases(phi, points, m):
         phases.append(phi * coeff_sum)
     return phases
 
-def q_add(qc, x_reg, y_reg, ancilla):
+def q_add(x_reg, y_reg, ancilla):
     m = len(x_reg)
+    qc = QuantumCircuit(m + len(y_reg) + 1)
     qc.append(cuccaro_1(m), [*x_reg, *y_reg, ancilla])
     qc.append(cuccaro_2(m), [*x_reg, *y_reg, ancilla])
     return qc.to_gate()
 
-def q_sub(qc, x_reg, y_reg, ancilla):
+def q_sub(x_reg, y_reg, ancilla):
     m = len(x_reg)
+    qc = QuantumCircuit(m + len(y_reg) + 1)
     qc.append(cuccaro_2(m).inverse(), [*x_reg, *y_reg, ancilla])
     qc.append(cuccaro_1(m).inverse(), [*x_reg, *y_reg, ancilla])
     return qc.to_gate()
