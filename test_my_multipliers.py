@@ -8,41 +8,78 @@ parent_dir = os.path.abspath(os.path.join(current_dir, ".."))
 sys.path.append(current_dir)
 sys.path.append(parent_dir)
 
-import sys
-import os
-from typing import List
-
 from AM import ToomCookMultiply, inline_karatsuba, RPM
 from gates import get_scratch_size
 
 from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit_aer import AerSimulator
 
+def run_simulation(qc: QuantumCircuit, n_scratch: int, n_res: int, n_a: int, n_b: int, val_a: int, val_b: int):
+    """
+    Helper function to run MPS simulation unconstrained by physical layout or size.
+    """
+    # 1. Initialize simulator with Matrix Product State method to save memory (RAM)
+    simulator = AerSimulator(method='matrix_product_state')
+    
+    print(f"Transpiling circuit ({n_a + n_b + n_res + n_scratch} qubits, unconstrained)...")
+    compiled_circuit = transpile(
+        qc, 
+        simulator, 
+        coupling_map=None, 
+        initial_layout=None,
+        optimization_level=1
+    )
+    
+    print("Running quantum simulation...")
+    job = simulator.run(compiled_circuit, shots=1)
+    result = job.result()
+    counts = result.get_counts()
+    
+    measured_state = list(counts.keys())[0]
+    reversed_state = measured_state[::-1]
+    
+    # LSB-first parsing of output register
+    res_start = n_a + n_b
+    res_end = n_a + n_b + n_res
+    res_bits = reversed_state[res_start:res_end]
+    # Reverse res_bits to represent standard big-endian (MSB-first) for int() conversion
+    product = int(res_bits[::-1], 2)
+    
+    # Parse scratch register to verify clean uncomputation
+    scratch_bits = reversed_state[res_end : res_end + n_scratch]
+    scratch_clean = all(bit == '0' for bit in scratch_bits)
+    
+    print(f"Classical Inputs: a = {val_a}, b = {val_b}")
+    print(f"Extracted Product Register (res) [LSB-first]: {res_bits}")
+    print(f"Extracted Product Register (res) [MSB-first]: {res_bits[::-1]} -> Decimal: {product}")
+    print(f"Scratchpad Register returned cleanly to |0>: {scratch_clean}")
+    
+    expected_product = val_a * val_b
+    if product == expected_product and scratch_clean:
+        print(f"STATUS: SUCCESS for {n_a}x{n_b} multiplication!")
+    else:
+        if product != expected_product:
+            print(f"STATUS: FAILED (Incorrect product {product}, expected {expected_product}).")
+        if not scratch_clean:
+            print("STATUS: FAILED (Scratchpad qubits left entangled/unclean).")
+
 def test_russian_peasant():
-    """
-    Tests your RPM (Russian Peasant Multiplier) gate with small values.
-    """
     print("\n" + "-"*50)
     print("TESTING: Russian Peasant Multiplier (RPM)")
-    print("-"*50)
+    print("-" * 50)
     
     n_a, n_b = 3, 3
-    # RPM qubits = 2 * (n_a + n_b) + 1
     total_qubits = 2 * (n_a + n_b) + 1
     qc = QuantumCircuit(total_qubits)
     
-    # Let's set a = 3 (binary 011) and b = 5 (binary 101)
-    # Target R should register 3 * 5 = 15 (binary 001111)
-    
-    # a is qubits [0:3] -> LSB is 0, set to 1, 1, 0
+    val_a, val_b = 3, 5
+    # Set a = 3 (binary 011 -> LSB-first [0]=1, [1]=1, [2]=0)
     qc.x(0)
     qc.x(1)
-    
-    # b is qubits [3:6] -> set to 1, 0, 1
+    # Set b = 5 (binary 101 -> LSB-first [0]=1, [1]=0, [2]=1)
     qc.x(3)
     qc.x(5)
     
-    # Append your RPM gate
     rpm_gate = RPM(n_a, n_b)
     qc.append(rpm_gate, qc.qubits)
     qc.measure_all()
@@ -53,40 +90,34 @@ def test_russian_peasant():
     result = job.result()
     counts = result.get_counts()
     
-    # Find the measured state
     measured_state = list(counts.keys())[0]
-    print(f"Classical Inputs: a = 3, b = 5")
-    print(f"Quantum Measurement (Full State): {measured_state}")
-    
-    # Extract R bits (indices n_a + n_b to 2*(n_a + n_b))
-    # Reverse string to match Qiskit's big-endian output order
     reversed_state = measured_state[::-1]
+    
+    # LSB-first bit reversal parsing of product register R
     r_start = n_a + n_b
     r_end = 2 * (n_a + n_b)
     r_bits = reversed_state[r_start:r_end]
-    product = int(r_bits, 2)
+    product = int(r_bits[::-1], 2) # Reverse to MSB-first for correct decimal value
     
-    print(f"Extracted Product Register (R): {r_bits} -> Decimal: {product}")
-    if product == 15:
+    print(f"Classical Inputs: a = {val_a}, b = {val_b}")
+    print(f"Extracted Product Register (R) [LSB-first]: {r_bits}")
+    print(f"Extracted Product Register (R) [MSB-first]: {r_bits[::-1]} -> Decimal: {product}")
+    
+    if product == (val_a * val_b):
         print("STATUS: SUCCESS for Russian Peasant Multiplier!")
     else:
         print("STATUS: FAILED (Check carry propagation logic).")
 
-
-def test_toom_cook():
-    """
-    Tests your ToomCookMultiply gate with asymmetric inputs.
-    """
+def test_toom_cook(n_a: int, n_b: int, val_a: int, val_b: int):
     print("\n" + "-"*50)
-    print("TESTING: Pebbled Toom-Cook 2.5 Multiplier")
-    print("-"*50)
+    print(f"TESTING: Grouped Pebbled Toom-Cook 2.5 Multiplier ({n_a}x{n_b})")
+    print("-" * 50)
     
-    n_a, n_b = 4, 6
     n_res = n_a + n_b
-    cutoff = 4
+    cutoff = 11
     
-    # Call your get_scratch_size function to allocate space safely
     n_scratch = get_scratch_size(n_a, n_b, cutoff)
+    print(f"Running full {n_a + n_b + n_res + n_scratch}-qubit test (recursive Toom-Cook 2.5)...")
     print(f"Calculated required scratch space: {n_scratch} qubits.")
     
     a_reg = QuantumRegister(n_a, 'a')
@@ -95,52 +126,30 @@ def test_toom_cook():
     scratch_reg = QuantumRegister(n_scratch, 'scratch')
     qc = QuantumCircuit(a_reg, b_reg, res_reg, scratch_reg)
     
-    # Set a = 3 (binary 0011) and b = 5 (binary 000101)
-    # Expected product = 15 (binary 0000001111)
-    qc.x(a_reg[0])
-    qc.x(a_reg[1])
-    
-    qc.x(b_reg[0])
-    qc.x(b_reg[2])
-    
-    # Instantiate your ToomCookMultiply gate
+    # Dynamic binary encoding of inputs (LSB-first)
+    for bit_idx in range(n_a):
+        if (val_a >> bit_idx) & 1:
+            qc.x(a_reg[bit_idx])
+            
+    for bit_idx in range(n_b):
+        if (val_b >> bit_idx) & 1:
+            qc.x(b_reg[bit_idx])
+            
     tc_gate = ToomCookMultiply(n_a, n_b, n_res, n_scratch, cutoff)
     qc.append(tc_gate, list(a_reg) + list(b_reg) + list(res_reg) + list(scratch_reg))
     
-    # Measure only the output register to verify cleanliness
     qc.measure_all()
+    run_simulation(qc, n_scratch, n_res, n_a, n_b, val_a, val_b)
+
+if __name__ == "__main__":
+    # Test 1: Basic Russian Peasant Multiplier (RPM)
+    test_russian_peasant()
     
-    simulator = AerSimulator()
-    compiled_circuit = transpile(qc, simulator)
-    job = simulator.run(compiled_circuit, shots=1)
-    result = job.result()
-    counts = result.get_counts()
+    # Test 2: Standard 35-qubit Recursive Toom-Cook 2.5
+    test_toom_cook(n_a=4, n_b=6, val_a=3, val_b=5)
     
-    measured_state = list(counts.keys())[0]
-    reversed_state = measured_state[::-1]
-    
-    # Extract res register (indices n_a + n_b to n_a + n_b + n_res)
-    res_start = n_a + n_b
-    res_end = n_a + n_b + n_res
-    res_bits = reversed_state[res_start:res_end]
-    product = int(res_bits, 2)
-    
-    # Extract scratchpad to verify it returned cleanly to |0> (essential for no decoherence!)
-    scratch_bits = reversed_state[res_end : res_end + n_scratch]
-    scratch_clean = all(bit == '0' for bit in scratch_bits)
-    
-    print(f"Classical Inputs: a = 3, b = 5")
-    print(f"Extracted Product Register (res): {res_bits} -> Decimal: {product}")
-    print(f"Extracted Scratchpad State: {scratch_bits}")
-    
-    if product == 15:
-        print("STATUS: SUCCESS for Toom-Cook 2.5 Multiplier!")
-        if scratch_clean:
-            print("DECOHERENCE CHECK: PASSED! Scratchpad register was completely uncomputed to |0>.")
-        else:
-            print("DECOHERENCE CHECK: WARNING! Scratchpad contains garbage bits (entanglement hazard).")
-    else:
-        print("STATUS: FAILED (Check carry/headroom boundaries).")
+    # Test 3: Large 180-qubit Recursive Toom-Cook 2.5 (Fully bypasses the 30-qubit limit using MPS!)
+    test_toom_cook(n_a=8, n_b=12, val_a=181, val_b=2743)
 
 
 def test_inline_karatsuba():

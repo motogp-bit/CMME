@@ -11,7 +11,8 @@ def get_scratch_size(n_a: int, n_b: int, cutoff: int) -> int:
     
     len_sum_a = (n_a - j) + 1
     len_sum_b = max(i, n_b - (2 * i)) + 2
-    current_level_scratch = 2 * (len_sum_a + len_sum_b)
+    len_prod = len_sum_a + len_sum_b
+    current_level_scratch = (j + i) + ((n_a - j) + (n_b - 2*i)) + 2 * (len_sum_a + len_sum_b) + 2 * len_prod + 1
     branch_a0_b0 = get_scratch_size(j, i, cutoff)
     branch_a1_b2 = get_scratch_size(n_a - j, n_b - (2 * i), cutoff)
     branch_sum = get_scratch_size(len_sum_a, len_sum_b, cutoff)
