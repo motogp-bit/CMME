@@ -3,6 +3,22 @@ import numpy as np
 from gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv
 from typing import List
 
+def schoolbook_multiplier(n_a: int, n_b: int, n_out: int):
+    qc = QuantumCircuit(n_a + n_b + n_out)
+    a = qc.qubits[:n_a]
+    b = qc.qubits[n_a : n_a + n_b]
+    R = qc.qubits[n_a + n_b :]
+    
+    for i in range(n_a):
+        for j in range(n_b):
+            k = i + j
+            controls = [a[i], b[j]]
+            for idx in range(n_out - 1, k, -1):
+                qc.mcx(controls + R[k:idx], R[idx])
+            qc.mcx(controls, R[k])
+            
+    return qc.to_gate()
+            
 def RPM(n_a: int, n_b: int):
     total_qubits = 2 * (n_a + n_b) + 1
     qc = QuantumCircuit(total_qubits)
@@ -19,34 +35,29 @@ def RPM(n_a: int, n_b: int):
     return qc.to_gate(label="RPM")
 
 def inline_karatsuba(
-    qc: QuantumCircuit, 
-    u_pieces: List[List], 
-    v_pieces: List[List], 
-    t_pieces: List[List], 
-    anc: any, 
+    qc: QuantumCircuit,
+    u_pieces: list,
+    v_pieces: list,
+    t_pieces: list,
+    anc: any,
     sign: int = 1
 ):
     """
-    Recursively implements Craig Gidney's O(n) Space Quantum Karatsuba Multiplier
-    using inline additions/subtractions directly into output pieces.
-    
-    This implementation resolves all slice truncation issues by preserving full-size 
-    unitary additions and utilizing Gidney's original RPM base-case with 
-    uncontested algebraic outputs of size 2h - 1, matching the exact number of pieces.
+    Recursively implements Craig Gidney's O(n) Space Quantum Karatsuba Multiplier using inline additions/subtractions directly into output pieces.
     """
     m = len(u_pieces)
     if m == 1:
         # Base case: schoolbook multiplication of two padded words of length w_in.
-        # Uses your original two-input RPM(w_in, w_in) signature inside qc.append,
-        # with perfect list unpacking of flat qubits to prevent CircuitErrors.
         w_in = len(u_pieces[0])
         w_out = len(t_pieces[0])
         
-        # We append RPM directly without intermediate variables, controlled by sign
+        # We use schoolbook_multiplier instead of RPM because schoolbook_multiplier
+        # correctly performs R += a * b even when R is initially non-zero,
+        # and we pass the entire t_pieces[0] to allow proper carry propagation through all w_out qubits!
         if sign == 1:
-            qc.append(RPM(w_in, w_in), [*u_pieces[0], *v_pieces[0], *t_pieces[0][:2 * w_in], anc])
+            qc.append(schoolbook_multiplier(w_in, w_in, w_out), [*u_pieces[0], *v_pieces[0], *t_pieces[0]])
         else:
-            qc.append(RPM(w_in, w_in).inverse(), [*u_pieces[0], *v_pieces[0], *t_pieces[0][:2 * w_in], anc])
+            qc.append(schoolbook_multiplier(w_in, w_in, w_out).inverse(), [*u_pieces[0], *v_pieces[0], *t_pieces[0]])
         return
 
     # To guarantee exact mathematical and unitary inversion for subtraction paths,
@@ -77,7 +88,7 @@ def inline_karatsuba(
         return
 
     h = m // 2
-    
+
     # 1. Scaling additions: t[h:] += t
     for i in range(h, len(t_pieces)):
         w_out = len(t_pieces[0])
@@ -85,7 +96,7 @@ def inline_karatsuba(
 
     # 2. Recursive multiply-add for low halves
     inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[:2 * h - 1], anc, sign=1)
-    
+
     # 3. Recursive multiply-subtract for high halves
     inline_karatsuba(qc, u_pieces[h:], v_pieces[h:], t_pieces[h : h + 2 * (m - h) - 1], anc, sign=-1)
 
