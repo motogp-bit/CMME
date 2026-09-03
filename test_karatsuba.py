@@ -62,7 +62,7 @@ def run_karatsuba_test(val_u: int, val_v: int, m: int = 2):
     for i in range(m):
         u_val = (val_u >> (i * w)) & ((1 << w) - 1)
         v_val = (val_v >> (i * w)) & ((1 << w) - 1)
-        # Write to the first w bits of each word; the remaining are carry padding
+        # Write to the first w bits of each word; the remaining are carry padding (left as 0!)
         for bit_idx in range(w):
             if (u_val >> bit_idx) & 1:
                 qc.x(u_reg[i * w_in + bit_idx])
@@ -75,7 +75,8 @@ def run_karatsuba_test(val_u: int, val_v: int, m: int = 2):
     t_pieces = [list(t_reg[i * w_out : (i + 1) * w_out]) for i in range(2 * m - 1)]
     anc = anc_reg[0]
     
-    print(f"Total Circuit Qubits: {qc.num_qubits}")
+    print(f"Total Circuit Qubits: {qc.num_qubits}\n")
+    print("Appending inline_karatsuba gate to circuit...")
     
     # Run forward multiplication (sign = 1)
     inline_karatsuba(qc, u_pieces, v_pieces, t_pieces, anc, sign=1)
@@ -136,10 +137,11 @@ if __name__ == "__main__":
     suite = [
         (1, 3, 2),
         (3, 3, 2),
-        (11, 15, 2),
+        (5, 7, 2),
         (13, 19, 2),
         (23, 17, 2),
         (101, 89, 2),
+
     ]
     
     all_success = True
