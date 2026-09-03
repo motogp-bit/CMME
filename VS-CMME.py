@@ -1,7 +1,6 @@
 from qiskit import QuantumCircuit
 from SMM import QQM
-from AM import ToomCookMultiply
-from gates import get_scratch_size
+from AM import RPM
 import numpy as np 
 
 def primes(d):
@@ -47,9 +46,7 @@ def build_tree(qc, regs, n,  N, index, ancilla):
             if out_size >= n:
                 qc.append(QQM(n, N), [*ln, *rn, *newreg, ancilla[0]])
             else:
-                scratch_size = get_scratch_size(len(ln), len(rn), 11)
-                qc.append(ToomCookMultiply(len(ln), len(rn), out_size, scratch_size, 11), [*ln, *rn, *newreg, *ancilla[:scratch_size]])
-                
+                qc.append(RPM(len(ln), len(rn)), [*ln, *rn, *newreg, *ancilla[0]])                
             next_level.append(newreg)
             index = index + out_size
         if tier_size % 2 != 0:
@@ -80,8 +77,7 @@ def invert_tree(qc, layers, markers, n, N, ancilla):
             if out_size >= n:
                 qc.append(QQM(n, N).inverse(), [*ln, *rn, *newreg, ancilla[0]])
             else:
-                #inline karatsuba test
-                pass
+                qc.append(RPM(len(ln), len(rn)), [*ln, *rn, *newreg, *ancilla[0]])                
             
 def main(sizes, N):
     n = int(np.log2(N))

@@ -36,39 +36,6 @@ def IP_adder(n_a: int, n_b: int):
         
     return qc.to_gate()
 
-def OOP_adder(n_a : int, n_b: int):
-    #b is the larger register
-    qc = QuantumCircuit(n_a + 2 * n_b + 1)
-    
-    a = qc.qubits[:n_a]
-    b = qc.qubits[n_a : n_a + n_b]
-    s = qc.qubits[n_a + n_b : n_a + 2 * n_b + 1]
-    csxdg = SXdgGate().control(1)
-    
-    for i in range(n_b):
-        b_qubit = b[i]
-        c_in = s[i]
-        c_out = s[i+1]
-        
-        if i < n_a:
-            a_qubit = a[i]
-            
-            qc.csx(a_qubit, c_out)
-            qc.csx(b_qubit, c_out)
-            qc.cx(a_qubit, b_qubit)
-            qc.csx(c_in, c_out)
-            qc.cx(b_qubit, c_in)
-            qc.append(csxdg, [c_in, c_out])
-            
-            qc.cx(a_qubit, b_qubit)
-        else:
-            qc.csx(b_qubit, c_out)
-            qc.csx(c_in, c_out)
-            qc.cx(b_qubit, c_in)
-            qc.append(csxdg, [c_in, c_out])
-            
-    return qc.to_gate()
-
 def gen_splits(max_bits: int, cutoff=11):
     dp = {}
     best_split = {}
