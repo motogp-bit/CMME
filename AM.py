@@ -18,21 +18,6 @@ def schoolbook_multiplier(n_a: int, n_b: int, n_out: int):
             qc.mcx(controls, R[k])
             
     return qc.to_gate()
-            
-def RPM(n_a: int, n_b: int):
-    total_qubits = 2 * (n_a + n_b) + 1
-    qc = QuantumCircuit(total_qubits)
-    
-    a = qc.qubits[:n_a]
-    b = qc.qubits[n_a : n_a + n_b]
-    R = qc.qubits[n_a + n_b : 2 * (n_a + n_b)]
-    anc = qc.qubits[-1]
-    
-    for i in range(n_a):
-        acc_slice = R[i : i + n_b + 1]  
-        c_adder = IP_adder(n_b, n_b + 1).control(1)  
-        qc.append(c_adder, [a[i]] + b[:] + acc_slice + [anc])
-    return qc.to_gate(label="RPM")
 
 def inline_karatsuba(
     qc: QuantumCircuit,
