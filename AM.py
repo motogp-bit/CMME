@@ -1,24 +1,7 @@
-from qiskit import QuantumCircuit,QuantumRegister
-from math import log
+from qiskit import QuantumCircuit
 import numpy as np
 from gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv
 from typing import List
-
-def get_scratch_size(n_a: int, n_b: int, cutoff: int) -> int:
-    if n_a < cutoff or n_b < cutoff or n_a <= 1 or n_b <= 1:
-        return 1  
-    
-    i = n_b // 3
-    j = n_a // 2
-    
-    len_sum_a = (n_a - j) + 1
-    len_sum_b = max(i, n_b - (2 * i)) + 2
-    len_prod = len_sum_a + len_sum_b
-    current_level_scratch = (j + i) + ((n_a - j) + (n_b - 2*i)) + 2 * (len_sum_a + len_sum_b) + 2 * len_prod + 1
-    branch_a0_b0 = get_scratch_size(j, i, cutoff)
-    branch_a1_b2 = get_scratch_size(n_a - j, n_b - (2 * i), cutoff)
-    branch_sum = get_scratch_size(len_sum_a, len_sum_b, cutoff)
-    return current_level_scratch + max(branch_a0_b0, branch_a1_b2, branch_sum)  
 
 def RPM(n_a: int, n_b: int):
     total_qubits = 2 * (n_a + n_b) + 1
@@ -35,239 +18,6 @@ def RPM(n_a: int, n_b: int):
         qc.append(c_adder, [a[i]] + b[:] + acc_slice + [anc])
     return qc.to_gate(label="RPM")
 
-def ToomCook25(
-    qc: QuantumCircuit,
-    a: List,
-    b: List,
-    res: List,
-    scratch: List,
-    dcheck: int,
-    cutoff: int = 4,
-    d: int = 0,
-    inverse: bool = False
-):
-
-    n_a = len(a)
-    n_b = len(b)
-    
-    if n_a < cutoff or n_b < cutoff or n_a <= 1 or n_b <= 1:
-        base_gate = RPM(n_a, n_b)
-        if inverse:
-            base_gate = base_gate.inverse()
-        qc.append(base_gate, [*a, *b, *res, scratch[-1]])
-        return
-
-    i = n_b // 3
-    j = n_a // 2
-    
-    a0, a1 = a[:j], a[j:]
-    b0, b1, b2 = b[:i], b[i:2*i], b[2*i:]
-    len_sum_a = len(a1) + 1
-    len_sum_b = max(len(b0), len(b1), len(b2)) + 2
-    len_prod = len_sum_a + len_sum_b
-    prod_p = scratch[:len(a0)+len(b0)]
-    prod_s = scratch[len(a0)+len(b0) : len(a0)+len(b0) + len(a1)+len(b2)]
-    sum_a = scratch[len(a0)+len(b0) + len(a1)+len(b2) : len(a0)+len(b0) + len(a1)+len(b2) + len_sum_a]
-    sum_b = scratch[len(a0)+len(b0) + len(a1)+len(b2) + len_sum_a : len(a0)+len(b0) + len(a1)+len(b2) + len_sum_a + len_sum_b]
-    diff_a = scratch[len(a0)+len(b0) + len(a1)+len(b2) + len_sum_a + len_sum_b : len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + len_sum_b]
-    diff_b = scratch[len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + len_sum_b : len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + 2*len_sum_b]
-    prod_q = scratch[len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + 2*len_sum_b : len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + 2*len_sum_b + len_prod]
-    prod_r = scratch[len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + 2*len_sum_b + len_prod : len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + 2*len_sum_b + 2*len_prod]
-    sub_scratch = scratch[len(a0)+len(b0) + len(a1)+len(b2) + 2*len_sum_a + 2*len_sum_b + 2*len_prod : -1]
-    anc = scratch[-1]
-    pebble_uncompute = (d < dcheck) or (d == 0)
-    if not inverse:
-        # Step 1: Compute P = a0 * b0 and S = a1 * b2 recursively in scratch
-        ToomCook25(qc, a0, b0, prod_p, sub_scratch, dcheck, cutoff, d + 1, False)
-        ToomCook25(qc, a1, b2, prod_s, sub_scratch, dcheck, cutoff, d + 1, False)
-        
-        # Step 2: Add contributions of P and S directly to full res (propagates carries/borrows past slice bounds!)
-        qc.append(IP_adder(len(prod_p), len(res)), [*prod_p, *res, anc])
-        qc.append(IP_adder(len(prod_p), len(res) - 2*i).inverse(), [*prod_p, *res[2*i:], anc])
-        
-        qc.append(IP_adder(len(prod_s), len(res) - 3*i), [*prod_s, *res[3*i:], anc])
-        qc.append(IP_adder(len(prod_s), len(res) - i).inverse(), [*prod_s, *res[i:], anc])
-        
-        # Step 3: Compute sum_a = a0 + a1
-        for idx in range(len(a0)):
-            qc.cx(a0[idx], sum_a[idx])
-        qc.append(IP_adder(len(a1), len_sum_a), [*a1, *sum_a, anc])
-        
-        # Step 4: Compute sum_b = b0 + b1 + b2 (NO TRUNCATION!)
-        for idx in range(len(b0)):
-            qc.cx(b0[idx], sum_b[idx])
-        qc.append(IP_adder(len(b1), len_sum_b), [*b1, *sum_b, anc])
-        qc.append(IP_adder(len(b2), len_sum_b), [*b2, *sum_b, anc])
-        
-        # Step 5: Compute Q = sum_a * sum_b
-        ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, False)
-        
-        # Step 6: Add Q terms with shifts Q * 2^(2i-1) and Q * 2^(i-1) to output
-        qc.append(IP_adder(len(prod_q), len(res) - (2*i - 1)), [*prod_q, *res[2*i - 1:], anc])
-        qc.append(IP_adder(len(prod_q), len(res) - (i - 1)), [*prod_q, *res[i - 1:], anc])
-        
-        # Step 7: Pebble Clean-up for Q
-        if pebble_uncompute:
-            ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, True)
-            qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *sum_b, anc])
-            qc.append(IP_adder(len(b1), len_sum_b).inverse(), [*b1, *sum_b, anc])
-            for idx in range(len(b0)):
-                qc.cx(b0[idx], sum_b[idx])
-            qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *sum_a, anc])
-            for idx in range(len(a0)):
-                qc.cx(a0[idx], sum_a[idx])
-                
-        # Step 8: Compute diff_a = a0 - a1
-        for idx in range(len(a0)):
-            qc.cx(a0[idx], diff_a[idx])
-        qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *diff_a, anc])
-        
-        # Step 9: Compute diff_b = b0 - b1 + b2 (NO TRUNCATION!)
-        for idx in range(len(b0)):
-            qc.cx(b0[idx], diff_b[idx])
-        qc.append(IP_adder(len(b1), len_sum_b).inverse(), [*b1, *diff_b, anc])
-        qc.append(IP_adder(len(b2), len_sum_b), [*b2, *diff_b, anc])
-        
-        # Step 10: Compute R = diff_a * diff_b
-        ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, False)
-        
-        # Dynamic sign correction for prod_r internally
-        c_sub_b = IP_adder(len(diff_b), len(prod_r)).inverse().control(1)
-        qc.append(c_sub_b, [diff_a[-1]] + diff_b + prod_r + [anc])
-        c_sub_a = IP_adder(len(diff_a), len(prod_r)).inverse().control(1)
-        qc.append(c_sub_a, [diff_b[-1]] + diff_a + prod_r + [anc])
-        
-        # Step 11: Add R terms with shifts R * 2^(2i-1) and -R * 2^(i-1) to output
-        qc.append(IP_adder(len(prod_r), len(res) - (2*i - 1)), [*prod_r, *res[2*i - 1:], anc])
-        qc.append(IP_adder(len(prod_r), len(res) - (i - 1)).inverse(), [*prod_r, *res[i - 1:], anc])
-        
-        # Sign corrections for res:
-        # If prod_r[-1] == 1, subtract C_R * 2^17 (modular shifts)
-        qc.cx(prod_r[-1], res[28])
-        qc.cx(prod_r[-1], res[22])
-        
-        # Step 12: Pebble Clean-up for R
-        if pebble_uncompute:
-            # UNCOMPUTE dynamic sign corrections first (unconditionally done if cleaning R!)
-            qc.append(c_sub_a.inverse(), [diff_b[-1]] + diff_a + prod_r + [anc])
-            qc.append(c_sub_b.inverse(), [diff_a[-1]] + diff_b + prod_r + [anc])
-            
-            ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, True)
-            qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *diff_b, anc])
-            qc.append(IP_adder(len(b1), len_sum_b), [*b1, *diff_b, anc])
-            for idx in range(len(b0)):
-                qc.cx(b0[idx], diff_b[idx])
-            qc.append(IP_adder(len(a1), len_sum_a), [*a1, *diff_a, anc])
-            for idx in range(len(a0)):
-                qc.cx(a0[idx], diff_a[idx])
-                
-        # Step 13: Clean up prod_p and prod_s
-        ToomCook25(qc, a1, b2, prod_s, sub_scratch, dcheck, cutoff, d + 1, True)
-        ToomCook25(qc, a0, b0, prod_p, sub_scratch, dcheck, cutoff, d + 1, True)
-                
-    else:
-        # EXACT unitary inverse path (reversed order of inverted operations)
-        
-        # Re-compute prod_p and prod_s forward
-        ToomCook25(qc, a0, b0, prod_p, sub_scratch, dcheck, cutoff, d + 1, False)
-        ToomCook25(qc, a1, b2, prod_s, sub_scratch, dcheck, cutoff, d + 1, False)
-        
-        if pebble_uncompute:
-            # Re-evaluate diff_a and diff_b forward
-            for idx in range(len(a0)):
-                qc.cx(a0[idx], diff_a[idx])
-            qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *diff_a, anc])
-            
-            for idx in range(len(b0)):
-                qc.cx(b0[idx], diff_b[idx])
-            qc.append(IP_adder(len(b1), len_sum_b).inverse(), [*b1, *diff_b, anc])
-            qc.append(IP_adder(len(b2), len_sum_b), [*b2, *diff_b, anc])
-            
-            # Re-evaluate R forward
-            ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, False)
-            
-            # Re-evaluate dynamic sign corrections forward
-            c_sub_b = IP_adder(len(diff_b), len(prod_r)).inverse().control(1)
-            qc.append(c_sub_b, [diff_a[-1]] + diff_b + prod_r + [anc])
-            c_sub_a = IP_adder(len(diff_a), len(prod_r)).inverse().control(1)
-            qc.append(c_sub_a, [diff_b[-1]] + diff_a + prod_r + [anc])
-            
-        # Invert additions/subtractions to res and sign corrections (UNCONDITIONAL!)
-        qc.cx(prod_r[-1], res[22])
-        qc.cx(prod_r[-1], res[28])
-        
-        qc.append(IP_adder(len(prod_r), len(res) - (i - 1)), [*prod_r, *res[i - 1:], anc])
-        qc.append(IP_adder(len(prod_r), len(res) - (2*i - 1)).inverse(), [*prod_r, *res[2*i - 1:], anc])
-        
-        # Uncompute R and its dynamic sign corrections (UNCONDITIONAL!)
-        c_sub_b_inv = IP_adder(len(diff_b), len(prod_r)).control(1)
-        qc.append(c_sub_b_inv, [diff_a[-1]] + diff_b + prod_r + [anc])
-        c_sub_a_inv = IP_adder(len(diff_a), len(prod_r)).control(1)
-        qc.append(c_sub_a_inv, [diff_b[-1]] + diff_a + prod_r + [anc])
-        
-        ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, True)
-        
-        qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *diff_b, anc])
-        qc.append(IP_adder(len(b1), len_sum_b), [*b1, *diff_b, anc])
-        for idx in range(len(b0)):
-            qc.cx(b0[idx], diff_b[idx])
-        qc.append(IP_adder(len(a1), len_sum_a), [*a1, *diff_a, anc])
-        for idx in range(len(a0)):
-            qc.cx(a0[idx], diff_a[idx])
-            
-        if pebble_uncompute:
-            # Re-evaluate sum_a and sum_b forward
-            for idx in range(len(a0)):
-                qc.cx(a0[idx], sum_a[idx])
-            qc.append(IP_adder(len(a1), len_sum_a), [*a1, *sum_a, anc])
-            
-            for idx in range(len(b0)):
-                qc.cx(b0[idx], sum_b[idx])
-            qc.append(IP_adder(len(b1), len_sum_b), [*b1, *sum_b, anc])
-            qc.append(IP_adder(len(b2), len_sum_b), [*b2, *sum_b, anc])
-            
-            # Re-evaluate Q forward
-            ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, False)
-            
-        # Invert Q additions to output (UNCONDITIONAL!)
-        qc.append(IP_adder(len(prod_q), len(res) - (i - 1)).inverse(), [*prod_q, *res[i - 1:], anc])
-        qc.append(IP_adder(len(prod_q), len(res) - (2*i - 1)).inverse(), [*prod_q, *res[2*i - 1:], anc])
-        
-        # Uncompute Q (UNCONDITIONAL!)
-        ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, True)
-        qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *sum_b, anc])
-        qc.append(IP_adder(len(b1), len_sum_b).inverse(), [*b1, *sum_b, anc])
-        for idx in range(len(b0)):
-            qc.cx(b0[idx], sum_b[idx])
-        qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *sum_a, anc])
-        for idx in range(len(a0)):
-            qc.cx(a0[idx], sum_a[idx])
-            
-        # Invert S and P contributions to res (UNCONDITIONAL!)
-        qc.append(IP_adder(len(prod_s), len(res) - i), [*prod_s, *res[i:], anc])
-        qc.append(IP_adder(len(prod_s), len(res) - 3*i).inverse(), [*prod_s, *res[3*i:], anc])
-        
-        qc.append(IP_adder(len(prod_p), len(res) - 2*i), [*prod_p, *res[2*i:], anc])
-        qc.append(IP_adder(len(prod_p), len(res)).inverse(), [*prod_p, *res, anc])
-        
-        # Clean up prod_p and prod_s (UNCONDITIONAL!)
-        ToomCook25(qc, a1, b2, prod_s, sub_scratch, dcheck, cutoff, d + 1, True)
-        ToomCook25(qc, a0, b0, prod_p, sub_scratch, dcheck, cutoff, d + 1, True)
-
-def ToomCookMultiply(n_a: int, n_b: int, n_res: int, n_scratch: int, cutoff: int, inverse = False):
-    nplog = np.frompyfunc(log, 2, 1)
-    N = nplog(max(n_a, n_b) / cutoff, 6)
-    k = np.floor(0.738 * N)
-    dcheck = int(N - k)
-    a = QuantumRegister(n_a)
-    b = QuantumRegister(n_b)
-    res = QuantumRegister(n_res)
-    scratch = QuantumRegister(n_scratch)
-    qc = QuantumCircuit(a, b, res, scratch)
-    ToomCook25(qc, list(a), list(b), list(res), list(scratch), dcheck, cutoff, 0, inverse)
-    return qc.to_gate()
-
-
 def inline_karatsuba(
     qc: QuantumCircuit, 
     u_pieces: List[List], 
@@ -278,11 +28,22 @@ def inline_karatsuba(
 ):
     m = len(u_pieces)
     if m == 1:
-        w = len(u_pieces[0])
-        base_gate = RPM(w, w)
-        if sign == -1:
-            base_gate = base_gate.inverse()
-        qc.append(base_gate, u_pieces[0] + v_pieces[0] + t_pieces[0] + [anc])
+        base_qc = QuantumCircuit(len(u_pieces[0]) + len(v_pieces[0]) + len(t_pieces[0]))
+        for idx_u in range(len(u_pieces[0])):
+            for idx_v in range(len(v_pieces[0])):
+                out_idx = idx_u + idx_v
+                if out_idx < len(t_pieces[0]):
+                    base_qc.ccx(
+                        base_qc.qubits[idx_u], 
+                        base_qc.qubits[len(u_pieces[0]) + idx_v], 
+                        base_qc.qubits[len(u_pieces[0]) + len(v_pieces[0]) + out_idx]
+                    )
+                    
+        base_gate = base_qc.to_gate(label=f"BaseCase_x{sign}")
+        if sign == 1:
+            qc.append(base_gate, [*u_pieces[0], *v_pieces[0], *t_pieces[0]])
+        else:
+            qc.append(base_gate.inverse(), [*u_pieces[0], *v_pieces[0], *t_pieces[0]])
         return
 
     h = m // 2
@@ -293,7 +54,6 @@ def inline_karatsuba(
         if sign == -1:
             adder = adder.inverse()
         qc.append(adder, t_pieces[i - h] + t_pieces[i] + [anc])
-
     inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[:2*h], anc, sign)
     inline_karatsuba(qc, u_pieces[h:], v_pieces[h:], t_pieces[h:3*h], anc, -sign)
 
@@ -303,16 +63,14 @@ def inline_karatsuba(
         if sign == 1:
             adder = adder.inverse()
         qc.append(adder, t_pieces[i - h] + t_pieces[i] + [anc])
-
     w_in = len(u_pieces[0])
     for i in range(h):
         qc.append(cuccaro_1(w_in), u_pieces[i + h] + u_pieces[i] + [anc])
         qc.append(cuccaro_2(w_in), u_pieces[i + h] + u_pieces[i] + [anc])
+        
         qc.append(cuccaro_1(w_in), v_pieces[i + h] + v_pieces[i] + [anc])
         qc.append(cuccaro_2(w_in), v_pieces[i + h] + v_pieces[i] + [anc])
-
     inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[h:3*h], anc, sign)
-
     for i in range(h):
         qc.append(cuccaro_inv(w_in), u_pieces[i + h] + u_pieces[i] + [anc])
         qc.append(cuccaro_inv(w_in), v_pieces[i + h] + v_pieces[i] + [anc])

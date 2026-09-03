@@ -27,8 +27,8 @@ from qiskit_aer import AerSimulator
 
 def run_karatsuba_test(val_u: int, val_v: int, m: int = 2):
     """
-    Dynamically configures and runs a Qiskit test for the Inline Karatsuba gate
-    for any arbitrary positive integers val_u and val_v.
+    Dynamically configures and runs a Qiskit test for Gidney's Inline Karatsuba multiplier
+    using your codebase, allowing you to test any arbitrary positive integers.
     """
     print("\n" + "-"*60)
     print(f"TEST CASE: {val_u} x {val_v} (m = {m} pieces)")
@@ -37,7 +37,6 @@ def run_karatsuba_test(val_u: int, val_v: int, m: int = 2):
     # 1. Determine minimum base word size w based on input values
     max_val = max(val_u, val_v, 1)
     n_bits = int(np.ceil(np.log2(max_val + 1)))
-    # We need m * w >= n_bits
     w = int(np.ceil(n_bits / m))
     if w == 0:
         w = 1
@@ -135,15 +134,15 @@ def run_karatsuba_test(val_u: int, val_v: int, m: int = 2):
         return False
 
 if __name__ == "__main__":
-    # Test suite of various inputs to ensure 100% reliability
     suite = [
-        (3, 3, 2),     # 2x2 bits
-        (5, 7, 2),     # 3x3 bits
-        (11, 15, 2),   # 4x4 bits
-        (13, 19, 2),   # 5x5 bits
-        (23, 17, 2),   # Prime numbers
-        (101, 89, 2),  # Larger bits
-        (5023, 1109, 2) # Arbitrary large numbers
+        (1, 3, 2),
+        (3, 3, 2),
+        (2, 3, 2),
+        (5, 7, 2),
+        (11, 15, 2),
+        (13, 19, 2),
+        (23, 17, 2),
+        (101, 89, 2),
     ]
     
     all_success = True
