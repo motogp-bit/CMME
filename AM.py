@@ -42,70 +42,44 @@ def inline_karatsuba(
     anc: any,
     sign: int = 1
 ):
-    """
-    Recursively implements Craig Gidney's O(n) Space Quantum Karatsuba Multiplier using inline additions/subtractions directly into output pieces.
-    """
+
     m = len(u_pieces)
     if m == 1:
-        # Base case: schoolbook multiplication of two padded words of length w_in.
         w_in = len(u_pieces[0])
         w_out = len(t_pieces[0])
-        
-        # We use schoolbook_multiplier instead of RPM because schoolbook_multiplier
-        # correctly performs R += a * b even when R is initially non-zero,
-        # and we pass the entire t_pieces[0] to allow proper carry propagation through all w_out qubits!
         if sign == 1:
             qc.append(schoolbook_multiplier(w_in, w_in, w_out), [*u_pieces[0], *v_pieces[0], *t_pieces[0]])
         else:
             qc.append(schoolbook_multiplier(w_in, w_in, w_out).inverse(), [*u_pieces[0], *v_pieces[0], *t_pieces[0]])
         return
-
-    # To guarantee exact mathematical and unitary inversion for subtraction paths,
-    # if sign == -1, we construct the sign=1 forward circuit and append its inverse gate.
     if sign == -1:
-        # Gather all flat qubits of our active pieces to build a clean subproblem circuit
         flat_u = [q for piece in u_pieces for q in piece]
         flat_v = [q for piece in v_pieces for q in piece]
         flat_t = [q for piece in t_pieces for q in piece]
-        
         total_qubits = len(flat_u) + len(flat_v) + len(flat_t) + 1
         sub_qc = QuantumCircuit(total_qubits)
-        
-        # Symmetrical subdivision mapping on the clean subproblem circuit
         w_in = len(u_pieces[0])
         w_out = len(t_pieces[0])
-        
         sub_u = [list(sub_qc.qubits[i * w_in : (i + 1) * w_in]) for i in range(m)]
         sub_v = [list(sub_qc.qubits[m * w_in + i * w_in : m * w_in + (i + 1) * w_in]) for i in range(m)]
         sub_t = [list(sub_qc.qubits[2 * m * w_in + i * w_out : 2 * m * w_in + (i + 1) * w_out]) for i in range(2 * m - 1)]
         sub_anc = sub_qc.qubits[-1]
-        
-        # Run forward multiplication on the subproblem
         inline_karatsuba(sub_qc, sub_u, sub_v, sub_t, sub_anc, sign=1)
-        
-        # Append the inverted subproblem gate directly
         qc.append(sub_qc.to_gate(label=f"inline_karatsuba_{m}_inv").inverse(), [*flat_u, *flat_v, *flat_t, anc])
         return
 
     h = m // 2
-
-    # 1. Scaling additions: t[h:] += t
     for i in range(h, len(t_pieces)):
         w_out = len(t_pieces[0])
         qc.append(IP_adder(w_out, w_out), [*t_pieces[i - h], *t_pieces[i], anc])
-
-    # 2. Recursive multiply-add for low halves
+    # Recursive on low halves
     inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[:2 * h - 1], anc, sign=1)
-
-    # 3. Recursive multiply-subtract for high halves
+    # Recursive on high halves
     inline_karatsuba(qc, u_pieces[h:], v_pieces[h:], t_pieces[h : h + 2 * (m - h) - 1], anc, sign=-1)
-
-    # 4. Scaling subtractions: t[h:] -= t
     for i in reversed(range(h, len(t_pieces))):
         w_out = len(t_pieces[0])
         qc.append(IP_adder(w_out, w_out).inverse(), [*t_pieces[i - h], *t_pieces[i], anc])
 
-    # 5. Symmetrical additions of operands: u_pieces[i] += u_pieces[i + h]
     w_in = len(u_pieces[0])
     for i in range(h):
         qc.append(cuccaro_1(w_in), [*u_pieces[i + h], *u_pieces[i], anc])
@@ -114,10 +88,8 @@ def inline_karatsuba(
         qc.append(cuccaro_1(w_in), [*v_pieces[i + h], *v_pieces[i], anc])
         qc.append(cuccaro_2(w_in), [*v_pieces[i + h], *v_pieces[i], anc])
 
-    # 6. Sum multiplication: (u_low + u_high) * (v_low + v_high)
+    # Sum multiplication
     inline_karatsuba(qc, u_pieces[:h], v_pieces[:h], t_pieces[h : h + 2 * h - 1], anc, sign=1)
-
-    # 7. Symmetrical uncomputation of input additions: u_pieces[i] -= u_pieces[i + h]
     for i in range(h):
         qc.append(cuccaro_inv(w_in), [*u_pieces[i + h], *u_pieces[i], anc])
         qc.append(cuccaro_inv(w_in), [*v_pieces[i + h], *v_pieces[i], anc])
