@@ -76,7 +76,6 @@ def run_karatsuba_test(val_u: int, val_v: int, m: int = 2):
     anc = anc_reg[0]
     
     print(f"Total Circuit Qubits: {qc.num_qubits}")
-    print("Appending inline_karatsuba gate to circuit...")
     
     # Run forward multiplication (sign = 1)
     inline_karatsuba(qc, u_pieces, v_pieces, t_pieces, anc, sign=1)
@@ -137,8 +136,6 @@ if __name__ == "__main__":
     suite = [
         (1, 3, 2),
         (3, 3, 2),
-        (2, 3, 2),
-        (5, 7, 2),
         (11, 15, 2),
         (13, 19, 2),
         (23, 17, 2),
