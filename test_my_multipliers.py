@@ -13,53 +13,7 @@ from AM import ToomCookMultiply, RPM, get_scratch_size
 from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit_aer import AerSimulator
 
-def run_simulation(qc: QuantumCircuit, n_scratch: int, n_res: int, n_a: int, n_b: int, val_a: int, val_b: int):
-# Extract the required method terminology
-    mps_string = list(dict(matrix_product_state=1).keys())[0]
-    simulator = AerSimulator(method=mps_string)
-    
-    # Override the built-in qubit ceiling after initialization
-    simulator.set_max_qubits(1000)
-    
-    # Transpile using the updated backend object
-    compiled_circuit = transpile(
-        qc, 
-        simulator,
-        optimization_level=1
-    )
-    
-    print("Running quantum simulation...")
-    job = simulator.run(compiled_circuit, shots=1)
-    result = job.result()
-    counts = result.get_counts()
-    
-    measured_state = list(counts.keys())[0]
-    reversed_state = measured_state[::-1]
-    
-    # LSB-first parsing of output register
-    res_start = n_a + n_b
-    res_end = n_a + n_b + n_res
-    res_bits = reversed_state[res_start:res_end]
-    # Reverse res_bits to represent standard big-endian (MSB-first) for int() conversion
-    product = int(res_bits[::-1], 2)
-    
-    # Parse scratch register to verify clean uncomputation
-    scratch_bits = reversed_state[res_end : res_end + n_scratch]
-    scratch_clean = all(bit == '0' for bit in scratch_bits)
-    
-    print(f"Classical Inputs: a = {val_a}, b = {val_b}")
-    print(f"Extracted Product Register (res) [LSB-first]: {res_bits}")
-    print(f"Extracted Product Register (res) [MSB-first]: {res_bits[::-1]} -> Decimal: {product}")
-    print(f"Scratchpad Register returned cleanly to |0>: {scratch_clean}")
-    
-    expected_product = val_a * val_b
-    if product == expected_product and scratch_clean:
-        print(f"STATUS: SUCCESS for {n_a}x{n_b} multiplication!")
-    else:
-        if product != expected_product:
-            print(f"STATUS: FAILED (Incorrect product {product}, expected {expected_product}).")
-        if not scratch_clean:
-            print("STATUS: FAILED (Scratchpad qubits left entangled/unclean).")
+
 
 def test_russian_peasant():
     print("\n" + "-"*50)

@@ -1,62 +1,91 @@
 import sys
 import os
-from typing import List
+import numpy as np
 
 # =============================================================================
 # FLEXIBLE IMPORT ROUTING
-# Automatically detects if the test script is run from outside or inside the
-# codebase directory, allowing clean imports.
 # =============================================================================
 current_dir = os.path.abspath(os.path.dirname(__file__))
 sys.path.append(current_dir)
 
 try:
-    from AM import inline_karatsuba, RPM
-    print("Successfully imported multipliers from local directory 'AM.py'!")
+    from quantum_multipliers import inline_karatsuba
+    print("Successfully imported inline_karatsuba from package 'quantum_multipliers'!")
 except ImportError:
     try:
-        from AM import inline_karatsuba, RPM
-        print("Successfully imported multipliers from 'quantum_multipliers'!")
+        from AM import inline_karatsuba
+        print("Successfully imported inline_karatsuba from local flat file 'AM.py'!")
     except ImportError as e:
         print("\n" + "="*80)
-        print("IMPORT ERROR: Please place this script next to 'AM.py' or 'quantum_multipliers.py'.")
+        print("IMPORT ERROR: Please ensure that 'quantum_multipliers.py' or 'AM.py'")
+        print("is located in the same directory as this test script.")
         print("="*80 + "\n")
         raise e
 
 from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit_aer import AerSimulator
 
-def test_inline_karatsuba_correct():
+def run_karatsuba_test(val_u: int, val_v: int, m: int = 2):
     """
-    Tests your corrected Gidney-style inline_karatsuba with non-truncated slices.
+    Dynamically configures and runs a Qiskit test for the Inline Karatsuba gate
+    for any arbitrary positive integers val_u and val_v.
     """
-    print("\n" + "-"*50)
-    print("TESTING: Craig Gidney's Correct Reversible Inline Karatsuba")
-    print("-"*50)
+    print("\n" + "-"*60)
+    print(f"TEST CASE: {val_u} x {val_v} (m = {m} pieces)")
+    print("-"*60)
     
-    qc = QuantumCircuit(11)
+    # 1. Determine minimum base word size w based on input values
+    max_val = max(val_u, val_v, 1)
+    n_bits = int(np.ceil(np.log2(max_val + 1)))
+    # We need m * w >= n_bits
+    w = int(np.ceil(n_bits / m))
+    if w == 0:
+        w = 1
+        
+    # 2. Apply Craig Gidney's padding theorem
+    lg_m = int(np.ceil(np.log2(m)))
+    w_in = w + lg_m if m > 1 else w
+    w_out = 2 * w + 3 * lg_m if m > 1 else 2 * w
     
-    u_pieces = [[qc.qubits[0]], [qc.qubits[1]]]
-    v_pieces = [[qc.qubits[2]], [qc.qubits[3]]]
-    t_pieces = [
-        [qc.qubits[4], qc.qubits[5]], 
-        [qc.qubits[6], qc.qubits[7]], 
-        [qc.qubits[8], qc.qubits[9]]
-    ]
-    anc = qc.qubits[10]
-    # u0 = 1
-    qc.x(1) # u1 = 1
-    qc.x(2) # v0 = 1
-    qc.x(3) # v1 = 1
+    print(f"Base Word Size (w): {w} bits")
+    print(f"Padded Input Word Size (w_in): {w_in} qubits")
+    print(f"Padded Output Word Size (w_out): {w_out} qubits")
     
+    # 3. Allocate quantum registers
+    u_reg = QuantumRegister(m * w_in, 'u')
+    v_reg = QuantumRegister(m * w_in, 'v')
+    t_reg = QuantumRegister((2 * m - 1) * w_out, 't')
+    anc_reg = QuantumRegister(1, 'anc')
+    
+    qc = QuantumCircuit(u_reg, v_reg, t_reg, anc_reg)
+    
+    # 4. Encode inputs dynamically with X-gates
+    for i in range(m):
+        u_val = (val_u >> (i * w)) & ((1 << w) - 1)
+        v_val = (val_v >> (i * w)) & ((1 << w) - 1)
+        # Write to the first w bits of each word; the remaining are carry padding
+        for bit_idx in range(w):
+            if (u_val >> bit_idx) & 1:
+                qc.x(u_reg[i * w_in + bit_idx])
+            if (v_val >> bit_idx) & 1:
+                qc.x(v_reg[i * w_in + bit_idx])
+                
+    # 5. Slice registers into List[List[Qubit]] Gidney-pieces
+    u_pieces = [list(u_reg[i * w_in : (i + 1) * w_in]) for i in range(m)]
+    v_pieces = [list(v_reg[i * w_in : (i + 1) * w_in]) for i in range(m)]
+    t_pieces = [list(t_reg[i * w_out : (i + 1) * w_out]) for i in range(2 * m - 1)]
+    anc = anc_reg[0]
+    
+    print(f"Total Circuit Qubits: {qc.num_qubits}")
     print("Appending inline_karatsuba gate to circuit...")
+    
+    # Run forward multiplication (sign = 1)
     inline_karatsuba(qc, u_pieces, v_pieces, t_pieces, anc, sign=1)
     
     qc.measure_all()
     
+    # 6. Simulate cleanly using MPS and unconstrained transpilation
     simulator = AerSimulator(method='matrix_product_state')
-    
-    print("Transpiling circuit (unconstrained)...")
     compiled_circuit = transpile(
         qc, 
         simulator, 
@@ -70,31 +99,64 @@ def test_inline_karatsuba_correct():
     result = job.result()
     counts = result.get_counts()
     
+    # 7. Parsing of Gidney's padded output slices
     measured_state = list(counts.keys())[0]
     reversed_state = measured_state[::-1]
     
-    # Extract slices in LSB-first ordering
-    t0_bits = reversed_state[4:6]
-    t1_bits = reversed_state[6:8]
-    t2_bits = reversed_state[8:10]
+    # T register starts after u and v registers:
+    t_start_idx = 2 * (m * w_in)
     
-    # Reverse slice strings back to big-endian (MSB-first) for standard base-2 conversion
-    t0 = int(t0_bits[::-1], 2)
-    t1 = int(t1_bits[::-1], 2)
-    t2 = int(t2_bits[::-1], 2)
+    extracted_slices = []
+    reconstructed_product = 0
     
-    # Apply Gidney's shift-reconstruction formula: Product = Sum_i t_i * 2^(i*w)
-    product = t0 * 1 + t1 * 2 + t2 * 4
+    for i in range(2 * m - 1):
+        slice_start = t_start_idx + i * w_out
+        slice_end = slice_start + w_out
+        slice_bits = reversed_state[slice_start:slice_end]
+        
+        # Parse slice as LSB-first binary string, reversing to MSB-first for casting
+        slice_val = int(slice_bits[::-1], 2)
+        # Sign extension logic: If MSB is 1, it's negative
+        if slice_bits[-1] == '1':
+            slice_val -= (1 << w_out)
+            
+        extracted_slices.append(slice_val)
+        reconstructed_product += slice_val * (2 ** (i * w))
+        
+    expected_product = val_u * val_v
+    print(f"Extracted T Register Slices: {extracted_slices}")
+    print(f"Reconstructed Product: {reconstructed_product} (Expected: {expected_product})")
     
-    print(f"Classical Inputs: u = 3, v = 3")
-    print(f"Quantum Measurement (Full State): {measured_state}")
-    print(f"Extracted T Register Slices: {[t0, t1, t2]}")
-    print(f"Reconstructed Product: {product} (Expected: 0)")
-    
-    if product == 9:
-        print("STATUS: SUCCESS for Corrected Inline Karatsuba!")
+    if reconstructed_product == expected_product:
+        print("STATUS: SUCCESS for Gidney Inline Karatsuba!")
+        return True
     else:
-        print("STATUS: FAILED (Check recursive slice calculations and adders).")
+        print("STATUS: FAILED (Incorrect product reconstruction).")
+        return False
 
 if __name__ == "__main__":
-    test_inline_karatsuba_correct()
+    # Test suite of various inputs to ensure 100% reliability
+    suite = [
+        (3, 3, 2),     # 2x2 bits
+        (5, 7, 2),     # 3x3 bits
+        (11, 15, 2),   # 4x4 bits
+        (13, 19, 2),   # 5x5 bits
+        (23, 17, 2),   # Prime numbers
+        (101, 89, 2),  # Larger bits
+        (5023, 1109, 2) # Arbitrary large numbers
+    ]
+    
+    all_success = True
+    for u, v, m in suite:
+        success = run_karatsuba_test(u, v, m)
+        if not success:
+            all_success = False
+            
+    if all_success:
+        print("\n" + "="*60)
+        print("ALL INTERACTIVE KARATSUBA TESTS PASSED SUCCESSFULLY!")
+        print("="*60 + "\n")
+    else:
+        print("\n" + "="*60)
+        print("SOME KARATSUBA TESTS FAILED. Please review calculations.")
+        print("="*60 + "\n")
