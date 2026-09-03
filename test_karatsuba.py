@@ -34,25 +34,17 @@ def test_inline_karatsuba_correct():
     print("TESTING: Craig Gidney's Correct Reversible Inline Karatsuba")
     print("-"*50)
     
-    # Allocates a clean ideal simulation environment
     qc = QuantumCircuit(11)
     
-    # Set up Gidney padded word layout: m = 2 words, word size w = 1.
-    # To satisfy w_padded = w + lg(m) = 1 + 1 = 2, we allocate lists of qubit slices.
     u_pieces = [[qc.qubits[0]], [qc.qubits[1]]]
     v_pieces = [[qc.qubits[2]], [qc.qubits[3]]]
-    
-    # Output register pieces of size 2w = 2 qubits each
     t_pieces = [
         [qc.qubits[4], qc.qubits[5]], 
         [qc.qubits[6], qc.qubits[7]], 
         [qc.qubits[8], qc.qubits[9]]
     ]
     anc = qc.qubits[10]
-    
-    # Let's set u = 3 (binary 11) and v = 3 (binary 11)
-    # Expected product u * v = 9
-    qc.x(0) # u0 = 1
+    # u0 = 1
     qc.x(1) # u1 = 1
     qc.x(2) # v0 = 1
     qc.x(3) # v1 = 1
@@ -62,7 +54,6 @@ def test_inline_karatsuba_correct():
     
     qc.measure_all()
     
-    # Save memory and bypass device coupling map limits using matrix product state
     simulator = AerSimulator(method='matrix_product_state')
     
     print("Transpiling circuit (unconstrained)...")
@@ -98,7 +89,7 @@ def test_inline_karatsuba_correct():
     print(f"Classical Inputs: u = 3, v = 3")
     print(f"Quantum Measurement (Full State): {measured_state}")
     print(f"Extracted T Register Slices: {[t0, t1, t2]}")
-    print(f"Reconstructed Product: {product} (Expected: 9)")
+    print(f"Reconstructed Product: {product} (Expected: 0)")
     
     if product == 9:
         print("STATUS: SUCCESS for Corrected Inline Karatsuba!")

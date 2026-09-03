@@ -4,6 +4,21 @@ import numpy as np
 from gates import IP_adder,cuccaro_1,cuccaro_2,cuccaro_inv
 from typing import List
 
+def get_scratch_size(n_a: int, n_b: int, cutoff: int) -> int:
+    if n_a < cutoff or n_b < cutoff or n_a <= 1 or n_b <= 1:
+        return 1  
+    
+    i = n_b // 3
+    j = n_a // 2
+    
+    len_sum_a = (n_a - j) + 1
+    len_sum_b = max(i, n_b - (2 * i)) + 2
+    len_prod = len_sum_a + len_sum_b
+    current_level_scratch = (j + i) + ((n_a - j) + (n_b - 2*i)) + 2 * (len_sum_a + len_sum_b) + 2 * len_prod + 1
+    branch_a0_b0 = get_scratch_size(j, i, cutoff)
+    branch_a1_b2 = get_scratch_size(n_a - j, n_b - (2 * i), cutoff)
+    branch_sum = get_scratch_size(len_sum_a, len_sum_b, cutoff)
+    return current_level_scratch + max(branch_a0_b0, branch_a1_b2, branch_sum)  
 
 def RPM(n_a: int, n_b: int):
     total_qubits = 2 * (n_a + n_b) + 1
@@ -191,7 +206,7 @@ def inline_karatsuba(
 
     h = m // 2
     for i in range(h, len(t_pieces)):
-        w_out = len(t_pieces)
+        w_out = len(t_pieces[0])
         adder = IP_adder(w_out, w_out)  
         if sign == -1:
             adder = adder.inverse()
