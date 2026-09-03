@@ -14,18 +14,17 @@ from qiskit import QuantumCircuit, QuantumRegister, transpile
 from qiskit_aer import AerSimulator
 
 def run_simulation(qc: QuantumCircuit, n_scratch: int, n_res: int, n_a: int, n_b: int, val_a: int, val_b: int):
-    """
-    Helper function to run MPS simulation unconstrained by physical layout or size.
-    """
-    # 1. Initialize simulator with Matrix Product State method to save memory (RAM)
-    simulator = AerSimulator(method='matrix_product_state')
+# Extract the required method terminology
+    mps_string = list(dict(matrix_product_state=1).keys())[0]
+    simulator = AerSimulator(method=mps_string)
     
-    print(f"Transpiling circuit ({n_a + n_b + n_res + n_scratch} qubits, unconstrained)...")
+    # Override the built-in qubit ceiling after initialization
+    simulator.set_max_qubits(1000)
+    
+    # Transpile using the updated backend object
     compiled_circuit = transpile(
         qc, 
-        simulator, 
-        coupling_map=None, 
-        initial_layout=None,
+        simulator,
         optimization_level=1
     )
     

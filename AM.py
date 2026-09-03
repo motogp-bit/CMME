@@ -89,7 +89,7 @@ def ToomCook25(
         qc.append(IP_adder(len(a1), len_sum_a), [*a1, *sum_a, anc])
         for idx in range(len(b0)):
             qc.cx(b0[idx], sum_b[idx])
-        qc.append(IP_adder(len(b1), len_sum_b - 1), [*b1, *sum_b[:-1], anc])
+        qc.append(IP_adder(len(b1), len_sum_b), [*b1, *sum_b, anc])
         qc.append(IP_adder(len(b2), len_sum_b), [*b2, *sum_b, anc])
         ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, False)
         qc.append(IP_adder(len(prod_q), len(res) - (2*i - 1)), [*prod_q, *res[2*i - 1:], anc])
@@ -97,7 +97,7 @@ def ToomCook25(
         if pebble_uncompute:
             ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, True)
             qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *sum_b, anc])
-            qc.append(IP_adder(len(b1), len_sum_b - 1).inverse(), [*b1, *sum_b[:-1], anc])
+            qc.append(IP_adder(len(b1), len_sum_b).inverse(), [*b1, *sum_b, anc])
             for idx in range(len(b0)):
                 qc.cx(b0[idx], sum_b[idx])
             qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *sum_a, anc])
@@ -108,7 +108,7 @@ def ToomCook25(
         qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *diff_a, anc])
         for idx in range(len(b0)):
             qc.cx(b0[idx], diff_b[idx])
-        qc.append(IP_adder(len(b1), len_sum_b - 1).inverse(), [*b1, *diff_b[:-1], anc])
+        qc.append(IP_adder(len(b1), len_sum_b).inverse(), [*b1, *diff_b, anc])
         qc.append(IP_adder(len(b2), len_sum_b), [*b2, *diff_b, anc])
         ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, False)
         qc.append(IP_adder(len(prod_r), len(res) - (2*i - 1)), [*prod_r, *res[2*i - 1:], anc])
@@ -116,7 +116,7 @@ def ToomCook25(
         if pebble_uncompute:
             ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, True)
             qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *diff_b, anc])
-            qc.append(IP_adder(len(b1), len_sum_b - 1), [*b1, *diff_b[:-1], anc])
+            qc.append(IP_adder(len(b1), len_sum_b), [*b1, *diff_b, anc])
             for idx in range(len(b0)):
                 qc.cx(b0[idx], diff_b[idx])
             qc.append(IP_adder(len(a1), len_sum_a), [*a1, *diff_a, anc])
@@ -133,14 +133,14 @@ def ToomCook25(
             qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *diff_a, anc])
             for idx in range(len(b0)):
                 qc.cx(b0[idx], diff_b[idx])
-            qc.append(IP_adder(len(b1), len_sum_b - 1).inverse(), [*b1, *diff_b[:-1], anc])
+            qc.append(IP_adder(len(b1), len_sum_b).inverse(), [*b1, *diff_b, anc])
             qc.append(IP_adder(len(b2), len_sum_b), [*b2, *diff_b, anc])
             ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, False)
         qc.append(IP_adder(len(prod_r), len(res) - (i - 1)), [*prod_r, *res[i - 1:], anc])
         qc.append(IP_adder(len(prod_r), len(res) - (2*i - 1)).inverse(), [*prod_r, *res[2*i - 1:], anc])
         ToomCook25(qc, diff_a, diff_b, prod_r, sub_scratch, dcheck, cutoff, d + 1, True)
         qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *diff_b, anc])
-        qc.append(IP_adder(len(b1), len_sum_b - 1), [*b1, *diff_b[:-1], anc])
+        qc.append(IP_adder(len(b1), len_sum_b), [*b1, *diff_b, anc])
         for idx in range(len(b0)):
             qc.cx(b0[idx], diff_b[idx])
         qc.append(IP_adder(len(a1), len_sum_a), [*a1, *diff_a, anc])
@@ -153,14 +153,14 @@ def ToomCook25(
             qc.append(IP_adder(len(a1), len_sum_a), [*a1, *sum_a, anc])
             for idx in range(len(b0)):
                 qc.cx(b0[idx], sum_b[idx])
-            qc.append(IP_adder(len(b1), len_sum_b - 1), [*b1, *sum_b[:-1], anc])
+            qc.append(IP_adder(len(b1), len_sum_b - 1), [*b1, *sum_b, anc])
             qc.append(IP_adder(len(b2), len_sum_b), [*b2, *sum_b, anc])
             ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, False)
         qc.append(IP_adder(len(prod_q), len(res) - (i - 1)).inverse(), [*prod_q, *res[i - 1:], anc])
         qc.append(IP_adder(len(prod_q), len(res) - (2*i - 1)).inverse(), [*prod_q, *res[2*i - 1:], anc])
         ToomCook25(qc, sum_a, sum_b, prod_q, sub_scratch, dcheck, cutoff, d + 1, True)
         qc.append(IP_adder(len(b2), len_sum_b).inverse(), [*b2, *sum_b, anc])
-        qc.append(IP_adder(len(b1), len_sum_b - 1).inverse(), [*b1, *sum_b[:-1], anc])
+        qc.append(IP_adder(len(b1), len_sum_b - 1).inverse(), [*b1, *sum_b, anc])
         for idx in range(len(b0)):
             qc.cx(b0[idx], sum_b[idx])
         qc.append(IP_adder(len(a1), len_sum_a).inverse(), [*a1, *sum_a, anc])
