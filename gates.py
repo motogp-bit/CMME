@@ -131,9 +131,9 @@ def correction_g(m: int, phi: float):
         for j in range(m - 1):
             wt = -phi * (2**(m-1 + i + j))
             
-            qc.mcphase(wt, control_qubits=[dcx, ry1[i]], target_qubit=rz1[j])
-            qc.mcphase(wt, control_qubits=[dcy, rx1[i]], target_qubit=rz1[j])
-            qc.mcphase(wt, control_qubits=[rx1[i], ry1[j]], target_qubit=dcz)
+            qc.mcp(wt, control_qubits=[dcx, ry1[i]], target_qubit=rz1[j])
+            qc.mcp(wt, control_qubits=[dcy, rx1[i]], target_qubit=rz1[j])
+            qc.mcp(wt, control_qubits=[rx1[i], ry1[j]], target_qubit=dcz)
             
     return qc.to_gate()
     
@@ -160,19 +160,19 @@ def interpol_phases(phi, points, m):
     phases = []
     for l in range(q):
         coeff_sum = sum(M_inv[d, l] * (2 ** (m * d)) for d in range(q))
+        if points[l] == -0.5:
+            coeff_sum /= 64.0
         phases.append(phi * coeff_sum)
     return phases
 
-def q_add(x_reg, y_reg, ancilla):
-    m = len(x_reg)
-    qc = QuantumCircuit(m + len(y_reg) + 1)
-    qc.append(cuccaro_1(m), [*x_reg, *y_reg, ancilla])
-    qc.append(cuccaro_2(m), [*x_reg, *y_reg, ancilla])
-    return qc.to_gate()
+def q_add(n_a: int, n_b: int, n_anc: int = 1):
+    qc = QuantumCircuit(n_a + n_b + n_anc)
+    qc.append(cuccaro_1(n_a), qc.qubits)
+    qc.append(cuccaro_2(n_a), qc.qubits)
+    return qc.to_gate(label="q_add")
 
-def q_sub(x_reg, y_reg, ancilla):
-    m = len(x_reg)
-    qc = QuantumCircuit(m + len(y_reg) + 1)
-    qc.append(cuccaro_2(m).inverse(), [*x_reg, *y_reg, ancilla])
-    qc.append(cuccaro_1(m).inverse(), [*x_reg, *y_reg, ancilla])
-    return qc.to_gate()
+def q_sub(n_a: int, n_b: int, n_anc: int = 1):
+    qc = QuantumCircuit(n_a + n_b + n_anc)
+    qc.append(cuccaro_2(n_a).inverse(), qc.qubits)
+    qc.append(cuccaro_1(n_a).inverse(), qc.qubits)
+    return qc.to_gate(label="q_sub")
