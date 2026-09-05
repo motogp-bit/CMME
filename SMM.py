@@ -244,6 +244,7 @@ def PTPC(qc, m: int, phi: float, anc, xc, yc, zc, cutoff: int = 4):
     qc.append(cuccaro_inv(m-1), [*ry0[:m-1], *ry1[:m-1], dcy_in])
     qc.append(cuccaro_inv(m-1), [*rx0[:m-1], *rx1[:m-1], dcx_in])
     return 
+    
 def QQ_Modular_Multiplier(n: int, N: int, m: int = None) -> QuantumCircuit:
     if m is None:
         m = n + 4      
