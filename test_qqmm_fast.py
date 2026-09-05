@@ -28,10 +28,8 @@ def run_simulation_case_fast(x_val: int, y_val: int, N: int, n: int = 6, m: int 
             qc.x(n + i)     
 
     qc.append(qc_gate, range(qc_gate.num_qubits))    
-    print("Simulating statevector...")
     state = Statevector(qc)
     state_dict = state.to_dict()
-    
     highest_prob = 0.0
     best_state_str = ""
     for state_str, amplitude in state_dict.items():
@@ -43,12 +41,10 @@ def run_simulation_case_fast(x_val: int, y_val: int, N: int, n: int = 6, m: int 
     y_bits = best_state_str[-(2*n):-n]
     P_bits = best_state_str[-(3*n + 1):-(2*n)]
     w_bits = best_state_str[-(3*n + 1 + m):-(3*n + 1)]
-    
     measured_x = int(x_bits[::-1], 2)
     measured_y = int(y_bits[::-1], 2)
     measured_P = int(P_bits[::-1], 2)
     measured_w = int(w_bits[::-1], 2)
-    
     expected_P = (x_val * y_val) % N
     
     print(f"Measured Input x: {measured_x} (Expected: {x_val})")
@@ -64,11 +60,7 @@ def run_simulation_case_fast(x_val: int, y_val: int, N: int, n: int = 6, m: int 
     print("-" * 75 + "\n")
 
 if __name__ == "__main__":
-    print("=================================================================")
-    print("QISKIT STATEVECTOR MULTIPLIER TESTER (MEMORY AND CPU OPTIMIZED)")
-    print("=================================================================\n")
     
-    # Option A: Fast 26-qubit simulation (takes ~1-3 seconds on average CPU)
     """    try:
         run_simulation_case_fast(x_val=6, y_val=7, N=13, n=6, m=6)
     except Exception as e:
