@@ -1,5 +1,5 @@
 from qiskit import QuantumCircuit
-from SMM import QQM
+from SMM import QQMM
 from AM import RPM
 import numpy as np 
 
@@ -44,8 +44,10 @@ def build_tree(qc, regs, n,  N, index, ancilla):
             newreg = qc.qubits[index: index + out_size]
             
             if out_size >= n:
-                qc.append(QQM(n, N), [*ln, *rn, *newreg, ancilla[0]])
-            else:
+                if out_size % 3 == 0:
+                    qc.append(QQMM(n, N, n + 4).inverse(), [*ln, *rn, *newreg, *fc, ancilla[0]])
+                else:
+                    pass
                 qc.append(RPM(len(ln), len(rn)), [*ln, *rn, *newreg, *ancilla[0]])                
             next_level.append(newreg)
             index = index + out_size
@@ -75,14 +77,16 @@ def invert_tree(qc, layers, markers, n, N, ancilla):
             out_size = len(ln) + len(rn)
             
             if out_size >= n:
-                qc.append(QQM(n, N).inverse(), [*ln, *rn, *newreg, ancilla[0]])
+                if out_size % 3 == 0:
+                    qc.append(QQMM(n, N, n + 4).inverse(), [*ln, *rn, *newreg, *fc, ancilla[0]])
+                else:
+                    pass
             else:
                 qc.append(RPM(len(ln), len(rn)), [*ln, *rn, *newreg, *ancilla[0]])                
             
 def main(sizes, N):
     n = int(np.log2(N))
     d = int(np.sqrt(n))
-    #nplog = np.frompyfunc(np.log, 2, 1)
     qc = QuantumCircuit(total_size * n)
     constants = primes(d)
     total_size = 0
@@ -97,7 +101,6 @@ def main(sizes, N):
     for i in range(len(regs)):
         qc.append(CMMC(sizes[i],constants[i]), [*c, regs[i]])
     index = mark + 1
-    ancilla = qc.qubits[-num_ancillas:]
     tree, markers = build_tree(qc, regs, n, N, index, ancilla)
     #accumulator
     invert_tree(qc, tree, markers, n ,N, ancilla)

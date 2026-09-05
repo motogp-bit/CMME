@@ -3,13 +3,12 @@ from qiskit import QuantumCircuit, transpile
 from qiskit.quantum_info import Statevector
 
 try:
-    from SMM import QQ_Modular_Multiplier
+    from SMM import QQMM
 except ImportError:
     try:
-        from SMM_v6 import QQ_Modular_Multiplier
+        from SMM_v6 import QQMM
     except ImportError:
         raise ImportError(
-            "Could not import QQ_Modular_Multiplier from SMM. "
             "Please ensure SMM.py is in the current directory."
         )
 
@@ -18,7 +17,7 @@ def run_simulation_case_fast(x_val: int, y_val: int, N: int, n: int = 6, m: int 
     print(f"Running fast Statevector simulation for: {x_val} * {y_val} (mod {N})")
     print(f"Configuration: n = {n} (cutoff=4), m = {m} | Total Qubits: {total_qubits}")
     print("-" * 75)
-    qc_gate = QQ_Modular_Multiplier(n=n, N=N, m=m)
+    qc_gate = QQMM(n=n, N=N, m=m)
     qc = QuantumCircuit(qc_gate.num_qubits)
     
     for i in range(n):
